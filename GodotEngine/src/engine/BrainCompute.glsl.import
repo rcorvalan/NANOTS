@@ -1,0 +1,13 @@
+[remap]
+
+importer="glsl"
+type="RDShaderFile"
+uid="uid://c6qe0hbuf3eob"
+valid=false
+
+[deps]
+
+source_file="res://src/engine/BrainCompute.glsl"
+
+[params]
+

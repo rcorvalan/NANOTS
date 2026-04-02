@@ -11,6 +11,8 @@ public partial class Nanot : Node2D
     
     public int PoolIndex = -1;
     public bool IsDead = false;
+    public bool CanReproduce = false;
+    public int Age = 0;
     
     public MetabolicSynthesis Metabolism;
 
@@ -38,6 +40,8 @@ public partial class Nanot : Node2D
     {
         if (IsDead) return;
         
+        Age++;
+        
         Velocity += Acceleration;
         Velocity = Velocity.LimitLength(MaxSpeed);
         Position += Velocity;
@@ -45,6 +49,16 @@ public partial class Nanot : Node2D
         
         CheckEdges(bounds);
         Rotation = Velocity.Angle() + (Mathf.Pi / 2.0f);
+        
+        // Lógica Bioma/Mitosis
+        if (Metabolism.Biomass >= Metabolism.MaxBiomass * 0.9f && Age > 100) {
+            CanReproduce = true;
+            Metabolism.ConsumeForReproduction();
+        }
+
+        if (Metabolism.Biomass <= 0) {
+            Die();
+        }
     }
 
     private void CheckEdges(Vector2 bounds)

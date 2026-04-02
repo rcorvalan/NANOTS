@@ -1,4 +1,3 @@
-#[compute]
 #version 450
 
 // Procesamos a los agentes estructurados en bloques de 64 invocaciones

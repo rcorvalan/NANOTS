@@ -53,7 +53,7 @@ public partial class TopographyGrid : Node2D
     private void CreateVisualizer()
     {
         Visualizer = new Sprite2D();
-        RenderImage = Image.Create(Cols, Rows, false, Image.Format.Rgba8);
+        RenderImage = Image.CreateEmpty(Cols, Rows, false, Image.Format.Rgba8);
 
         for (int y = 0; y < Rows; y++)
         {

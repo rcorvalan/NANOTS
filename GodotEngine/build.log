@@ -1,0 +1,15 @@
+  Determinando los proyectos que se van a restaurar...
+  Todos los proyectos están actualizados para la restauración.
+C:\Users\rcorv\OneDrive - Adecua SpA\Escritorio\Nanots\GodotEngine\src\Main.cs(181,6): error CS1002: Se esperaba ; [C:\Users\rcorv\OneDrive - Adecua SpA\Escritorio\Nanots\GodotEngine\Nanot Sandbox.csproj]
+C:\Users\rcorv\OneDrive - Adecua SpA\Escritorio\Nanots\GodotEngine\src\Main.cs(183,5): error CS0106: El modificador 'private' no es válido para este elemento [C:\Users\rcorv\OneDrive - Adecua SpA\Escritorio\Nanots\GodotEngine\Nanot Sandbox.csproj]
+C:\Users\rcorv\OneDrive - Adecua SpA\Escritorio\Nanots\GodotEngine\src\Main.cs(190,6): error CS1513: Se esperaba } [C:\Users\rcorv\OneDrive - Adecua SpA\Escritorio\Nanots\GodotEngine\Nanot Sandbox.csproj]
+
+ERROR al compilar.
+
+C:\Users\rcorv\OneDrive - Adecua SpA\Escritorio\Nanots\GodotEngine\src\Main.cs(181,6): error CS1002: Se esperaba ; [C:\Users\rcorv\OneDrive - Adecua SpA\Escritorio\Nanots\GodotEngine\Nanot Sandbox.csproj]
+C:\Users\rcorv\OneDrive - Adecua SpA\Escritorio\Nanots\GodotEngine\src\Main.cs(183,5): error CS0106: El modificador 'private' no es válido para este elemento [C:\Users\rcorv\OneDrive - Adecua SpA\Escritorio\Nanots\GodotEngine\Nanot Sandbox.csproj]
+C:\Users\rcorv\OneDrive - Adecua SpA\Escritorio\Nanots\GodotEngine\src\Main.cs(190,6): error CS1513: Se esperaba } [C:\Users\rcorv\OneDrive - Adecua SpA\Escritorio\Nanots\GodotEngine\Nanot Sandbox.csproj]
+    0 Advertencia(s)
+    3 Errores
+
+Tiempo transcurrido 00:00:00.65
