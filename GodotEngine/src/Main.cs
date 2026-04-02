@@ -497,19 +497,38 @@ public partial class Main : Node2D
             qt.Query(new Rect2(agent.Position.X - 50, agent.Position.Y - 50, 100, 100), neighbors);
             
             int neighborCount = Mathf.Max(0, neighbors.Count - 1); // Excluir a sí mismo
-            // --- 1.1 Decodificación P2P ---
+            // --- 1.1 Decodificación P2P Semántica ---
             float localSignalSum = 0f;
             int validSignals = 0;
+            float socialFoodDirX = 0f, socialFoodDirY = 0f; // Dirección social a comida reportada
+            float socialDangerDirX = 0f, socialDangerDirY = 0f;
+            int foodReports = 0, dangerReports = 0;
             
             foreach(var nb in neighbors) {
                 if (nb == agent || nb.IsDead) continue;
-                // Si la frecuencia de radio desvía más del 10% (0.1f), es incomprensible.
                 if (Mathf.Abs(nb.RadioFrequency - agent.RadioFrequency) < 0.1f) {
+                    // Filtrar por confianza (Feature 6)
+                    float trust = agent.GetTrust(nb.PoolIndex);
+                    if (trust < 0.2f) continue; // Ignorar mentirosos conocidos
+                    
                     localSignalSum += nb.CurrentBroadcastSignal;
                     validSignals++;
+                    
+                    // Decodificar señales semánticas
+                    if (nb.SignalType > 0.5f) { // Reporte de comida
+                        socialFoodDirX += nb.SignalDirX * trust;
+                        socialFoodDirY += nb.SignalDirY * trust;
+                        foodReports++;
+                    } else if (nb.SignalType < -0.5f) { // Reporte de peligro
+                        socialDangerDirX += nb.SignalDirX * trust;
+                        socialDangerDirY += nb.SignalDirY * trust;
+                        dangerReports++;
+                    }
                 }
             }
             float avgSignal = validSignals > 0 ? localSignalSum / validSignals : 0f;
+            if (foodReports > 0) { socialFoodDirX /= foodReports; socialFoodDirY /= foodReports; }
+            if (dangerReports > 0) { socialDangerDirX /= dangerReports; socialDangerDirY /= dangerReports; }
             // -----------------------------
             
             int offset = i * NEAT.Inputs;
@@ -549,8 +568,8 @@ public partial class Main : Node2D
             FlatInputs[offset + 12] = agent.RadioFrequency; // Su propia frecuencia
             FlatInputs[offset + 13] = Mathf.Clamp((float)validSignals / 10f, 0, 1); // Densidad de compatriotas cercanos
             
-            FlatInputs[offset + 14] = StigGrid.CheckTile(agent.Position) > 0 ? 1.0f : 0.0f;
-            FlatInputs[offset + 15] = avgSignal;
+            FlatInputs[offset + 14] = socialFoodDirX; // Dirección social: "los vecinos dicen comida por aquí"
+            FlatInputs[offset + 15] = socialFoodDirY;
         }
 
         // 2. Compute Shaders (GPU Dispatcher nativo Godot)
@@ -570,9 +589,55 @@ public partial class Main : Node2D
             // Salidas [-1, 1] desde la Tanh de GLSL Compute
             agent.ApplyForce(new Vector2(outs[0], outs[1]) * agent.MaxForce);
             
-            // Outputs P2P y Biológicos
-            agent.CurrentBroadcastSignal = outs[4]; // Canal de salida
-            agent.RadioFrequency += outs[5] * 0.01f; // Mutación tonal activa (Desplazamiento lento)
+            // --- APRENDIZAJE HEBBIANO (intra-vida) ---
+            // Calcular recompensa: ¿ganó o perdió biomasa desde el frame anterior?
+            float biomassDelta = agent.Metabolism.Biomass - agent.PreviousBiomass;
+            agent.RewardSignal = Mathf.Clamp(biomassDelta * 2f, -1f, 1f); // Amplificar señal
+            agent.PreviousBiomass = agent.Metabolism.Biomass;
+            
+            // Extraer inputs actuales para Hebbian
+            int inputOffset = i * NEAT.Inputs;
+            float[] agentInputs = new float[NEAT.Inputs];
+            for(int inp = 0; inp < NEAT.Inputs && (inputOffset + inp) < FlatInputs.Length; inp++) {
+                agentInputs[inp] = FlatInputs[inputOffset + inp];
+            }
+            // Aplicar aprendizaje: refuerza conexiones que llevaron a comer, debilita las que llevaron a hambre
+            NEAT.HebbianUpdate(agent.PoolIndex, agentInputs, agent.RewardSignal, 0.0005f);
+            
+            // --- EMISIÓN DE SEÑALES SEMÁNTICAS ---
+            agent.CurrentBroadcastSignal = outs[4];
+            
+            // Si encontró comida cercana, emitir señal "COMIDA + dirección"
+            bool hasNearbyFood = false;
+            Vector2 nearFoodDir = Vector2.Zero;
+            foreach(var f in FoodMgr.Pellets) {
+                if (!f.IsRotten && agent.Position.DistanceSquaredTo(f.Position) < 2500f) {
+                    hasNearbyFood = true;
+                    nearFoodDir = (f.Position - agent.Position).Normalized();
+                    break;
+                }
+            }
+            
+            if (hasNearbyFood) {
+                // Engaño: mentirosos invierten la dirección
+                float deceptionFlip = (GD.Randf() < agent.DeceptionTrait) ? -1f : 1f;
+                agent.SignalType = 1.0f; // COMIDA
+                agent.SignalDirX = nearFoodDir.X * deceptionFlip;
+                agent.SignalDirY = nearFoodDir.Y * deceptionFlip;
+                agent.CurrentBroadcastSignal = 1.0f; // Grito fuerte
+            } else {
+                agent.SignalType = outs[4]; // La red decide qué decir
+                agent.SignalDirX = outs[0]; // Comparte su dirección de movimiento
+                agent.SignalDirY = outs[1];
+            }
+            
+            // Aplicar fuerza social: seguir reportes de comida de vecinos confiables
+            if (Mathf.Abs(agentInputs[14]) > 0.01f || Mathf.Abs(agentInputs[15]) > 0.01f) {
+                Vector2 socialPull = new Vector2(agentInputs[14], agentInputs[15]).Normalized();
+                agent.ApplyForce(socialPull * 0.015f); // Seguir las indicaciones sociales
+            }
+            
+            agent.RadioFrequency += outs[5] * 0.01f;
             if (agent.RadioFrequency < 0) agent.RadioFrequency += 1f;
             if (agent.RadioFrequency > 1f) agent.RadioFrequency -= 1f;
             

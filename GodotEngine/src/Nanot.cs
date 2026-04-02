@@ -16,14 +16,24 @@ public partial class Nanot : Node2D
     public int Age = 0;
     public const int MAX_AGE = 12000; // Senescencia: ~3.3 minutos a 60fps
     
-    // Comunicación P2P
+    // Comunicación P2P Estructurada
     public float RadioFrequency = 0f;
     public float CurrentBroadcastSignal = 0f;
-    public float CommRadius = 60f; // Radio de comunicación mutable/heredable
+    public float CommRadius = 60f;
+    
+    // Señal semántica: (tipo, dirX, dirY) — permite comunicar ubicaciones
+    // SignalType: 0=nada, >0.5=comida, <-0.5=peligro
+    public float SignalType = 0f;
+    public float SignalDirX = 0f;
+    public float SignalDirY = 0f;
     
     // Sociología: Engaño y Reputación
-    public float DeceptionTrait = 0f; // 0=honesto, 1=mentiroso compulsivo. Heredable.
+    public float DeceptionTrait = 0f;
     public Dictionary<int, float> TrustLedger = new Dictionary<int, float>();
+    
+    // Aprendizaje Hebbiano: tracking para recompensa intra-vida
+    public float PreviousBiomass = 150f; // Para calcular delta de recompensa
+    public float RewardSignal = 0f; // +1 si ganó biomasa, -1 si perdió
     
     public MetabolicSynthesis Metabolism;
 

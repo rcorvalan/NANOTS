@@ -88,4 +88,34 @@ public class NeuroEvolutionNetwork
             FlatBiases[cb + i] = rng.Randf() > 0.5f ? FlatBiases[ab + i] : FlatBiases[bb + i];
         }
     }
+    
+    /// <summary>
+    /// Aprendizaje Hebbiano Simplificado (intra-vida):
+    /// reward > 0: Refuerza los pesos de la capa Input→Hidden (lo que hizo fue bueno)
+    /// reward < 0: Debilita esos pesos (lo que hizo fue malo)
+    /// learningRate controla cuánto cambian por episodio (~0.001f)
+    /// </summary>
+    public void HebbianUpdate(int agentIndex, float[] lastInputs, float reward, float learningRate = 0.001f)
+    {
+        if (agentIndex < 0 || Mathf.Abs(reward) < 0.001f) return;
+        
+        int wOffset = agentIndex * W_total;
+        
+        // Solo modificar la primera capa (Input→Hidden) para estabilidad
+        int inputHiddenWeights = Inputs * Hidden;
+        
+        for (int h = 0; h < Hidden; h++) {
+            for (int inp = 0; inp < Inputs; inp++) {
+                int wIdx = wOffset + (h * Inputs + inp);
+                if (wIdx >= FlatWeights.Length) break;
+                
+                // Regla Hebbiana: Δw = η * reward * input_activation
+                float inputVal = (inp < lastInputs.Length) ? lastInputs[inp] : 0f;
+                float delta = learningRate * reward * inputVal;
+                
+                FlatWeights[wIdx] += delta;
+                FlatWeights[wIdx] = Mathf.Clamp(FlatWeights[wIdx], -5f, 5f);
+            }
+        }
+    }
 }
