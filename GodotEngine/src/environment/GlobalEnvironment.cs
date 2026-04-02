@@ -29,7 +29,7 @@ public partial class GlobalEnvironment : Node2D
             var props = Topography.GetPropsAt(n.Position.X, n.Position.Y);
             
             // CALOR: Drena biomasa más rápido en zonas calientes
-            n.Metabolism.Decay(0.01f, props.heat);
+            n.Metabolism.Decay(0.003f, props.heat);
             
             // RADIACIÓN: Zona mutágena real
             if (props.radiation > 0.5f) {

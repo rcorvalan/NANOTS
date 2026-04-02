@@ -14,7 +14,7 @@ public partial class Nanot : Node2D
     public bool IsDead = false;
     public bool CanReproduce = false;
     public int Age = 0;
-    public const int MAX_AGE = 12000; // Senescencia: ~3.3 minutos a 60fps
+    public const int MAX_AGE = 216000; // Senescencia: ~60 minutos a 60fps
     
     // Comunicación P2P Estructurada
     public float RadioFrequency = 0f;
@@ -34,6 +34,18 @@ public partial class Nanot : Node2D
     // Aprendizaje Hebbiano: tracking para recompensa intra-vida
     public float PreviousBiomass = 150f; // Para calcular delta de recompensa
     public float RewardSignal = 0f; // +1 si ganó biomasa, -1 si perdió
+    
+    // Feature 11: Vectores de decisión (almacenados en _Process, renderizados en _Draw)
+    public Vector2 DbgFoodDir = Vector2.Zero;        // Dirección a comida más cercana
+    public float DbgFoodProximity = 0f;               // Proximidad a comida [0-1]
+    public Vector2 DbgSocialFoodDir = Vector2.Zero;   // Dirección social a comida reportada
+    public Vector2 DbgSocialDangerDir = Vector2.Zero;  // Dirección social de peligro reportado
+    public Vector2 DbgCohesion = Vector2.Zero;         // Fuerza Boids: cohesión
+    public Vector2 DbgSeparation = Vector2.Zero;       // Fuerza Boids: separación
+    public Vector2 DbgAlignment = Vector2.Zero;        // Fuerza Boids: alineación
+    public Vector2 DbgNeuralOutput = Vector2.Zero;     // Salida directa de la red neuronal
+    public int DbgNeighborCount = 0;                   // Vecinos en CommRadius
+    public int DbgKindredCount = 0;                    // Vecinos de misma especie
     
     public MetabolicSynthesis Metabolism;
 

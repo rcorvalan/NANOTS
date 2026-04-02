@@ -28,7 +28,13 @@ public partial class Main : Node2D
     private Nanot SelectedAgent = null;
     private PanelContainer InspectorUI;
     private Label LblInspEnergy, LblInspAge, LblInspFaction, LblInspState;
+    private Label LblInspCommRadius, LblInspDeception, LblInspNeighbors, LblInspReward;
     private Font defaultFont;
+    
+    // CSV Export
+    private FileDialog CsvFileDialog;
+    private Label LblStatus;
+    private float StatusTimer = 0f;
 
     // Constantes/Controles de Simulacion
     private float MutationRate = 0.1f;
@@ -62,8 +68,10 @@ public partial class Main : Node2D
         // Cargar MultiMesh +10000 limit
         SetupMultiMesh();
         
-        // La población inicial ahora es disparada por el bucle _Process
-        // gracias a TargetPopulation = 50;
+        // Generación de población inicial (sin generación espontánea en _Process)
+        for(int i = 0; i < TargetPopulation; i++) {
+            SpawnNanot(new Vector2((float)GD.RandRange(0, ScreenSize.X), (float)GD.RandRange(0, ScreenSize.Y)));
+        }
 
         Cam = new Camera2D();
         Cam.Position = new Vector2(ScreenSize.X / 2, ScreenSize.Y / 2);
@@ -235,7 +243,7 @@ public partial class Main : Node2D
         btnCSV.Text = "📊 Exportar Métricas CSV";
         btnCSV.CustomMinimumSize = new Vector2(200, 30);
         btnCSV.Pressed += () => {
-            ExportMetricsCSV();
+            CsvFileDialog.Popup();
         };
         slideBox.AddChild(btnCSV);
         
@@ -249,8 +257,28 @@ public partial class Main : Node2D
              GetTree().Quit();
         };
         slideBox.AddChild(btnExit);
+        
+        // --- Status Label (Toast de feedback) ---
+        LblStatus = new Label();
+        LblStatus.Position = new Vector2(20, ScreenSize.Y - 50);
+        LblStatus.AddThemeColorOverride("font_color", new Color(0.3f, 1f, 0.3f, 1));
+        LblStatus.Visible = false;
+        canvas.AddChild(LblStatus);
 
         canvas.AddChild(panel);
+        
+        // --- FileDialog para CSV ---
+        CsvFileDialog = new FileDialog();
+        CsvFileDialog.FileMode = FileDialog.FileModeEnum.SaveFile;
+        CsvFileDialog.Title = "Guardar Métricas CSV";
+        CsvFileDialog.Access = FileDialog.AccessEnum.Filesystem;
+        CsvFileDialog.Filters = new string[] { "*.csv ; Archivos CSV" };
+        CsvFileDialog.CurrentFile = $"nanot_metrics_{System.DateTime.Now:yyyyMMdd_HHmmss}.csv";
+        CsvFileDialog.Size = new Vector2I(700, 500);
+        CsvFileDialog.FileSelected += (string selectedPath) => {
+            ExportMetricsCSV(selectedPath);
+        };
+        canvas.AddChild(CsvFileDialog);
 
         // --- GLOSARIO DE COLORES (Arriba a la derecha) ---
         PanelContainer legend = new PanelContainer();
@@ -312,14 +340,16 @@ public partial class Main : Node2D
 
         // --- PANEL DE INSPECCION INDIVIDUAL (MICROSCÓPIO) ---
         InspectorUI = new PanelContainer();
-        InspectorUI.Position = new Vector2(ScreenSize.X - 350, ScreenSize.Y - 180);
+        InspectorUI.Position = new Vector2(ScreenSize.X - 350, ScreenSize.Y - 620);
         InspectorUI.Visible = false;
         
         StyleBoxFlat bgInsp = new StyleBoxFlat();
         bgInsp.BgColor = new Color(0.1f, 0.1f, 0.2f, 0.95f);
         bgInsp.SetCornerRadiusAll(12);
-        bgInsp.BorderWidthLeft = 2; bgInsp.BorderColor = new Color(0.2f, 1f, 1f, 0.8f);
-        bgInsp.ContentMarginLeft = 15; bgInsp.ContentMarginTop = 15;
+        bgInsp.BorderWidthLeft = 2; bgInsp.BorderWidthRight = 2;
+        bgInsp.BorderColor = new Color(0.2f, 1f, 1f, 0.8f);
+        bgInsp.ContentMarginLeft = 15; bgInsp.ContentMarginTop = 12;
+        bgInsp.ContentMarginRight = 15; bgInsp.ContentMarginBottom = 12;
         InspectorUI.AddThemeStyleboxOverride("panel", bgInsp);
 
         VBoxContainer inspBox = new VBoxContainer();
@@ -334,10 +364,51 @@ public partial class Main : Node2D
         LblInspEnergy = new Label();
         LblInspAge = new Label();
         LblInspFaction = new Label();
+        LblInspCommRadius = new Label();
+        LblInspDeception = new Label();
+        LblInspNeighbors = new Label();
+        LblInspReward = new Label();
         inspBox.AddChild(LblInspState);
         inspBox.AddChild(LblInspEnergy);
         inspBox.AddChild(LblInspAge);
         inspBox.AddChild(LblInspFaction);
+        inspBox.AddChild(LblInspCommRadius);
+        inspBox.AddChild(LblInspDeception);
+        inspBox.AddChild(LblInspNeighbors);
+        inspBox.AddChild(LblInspReward);
+
+        inspBox.AddChild(new HSeparator());
+        Label inspVecTitle = new Label(); inspVecTitle.Text = "VECTORES DE DECISIÓN:";
+        inspVecTitle.AddThemeColorOverride("font_color", new Color(0.7f, 0.7f, 1f, 1));
+        inspBox.AddChild(inspVecTitle);
+        
+        Label lgVel = new Label(); lgVel.Text = "→ Verde: Velocidad actual";
+        lgVel.AddThemeColorOverride("font_color", Colors.Green); lgVel.AddThemeConstantOverride("line_spacing", 0);
+        inspBox.AddChild(lgVel);
+        Label lgFood = new Label(); lgFood.Text = "→ Amarillo: Dir. a comida";
+        lgFood.AddThemeColorOverride("font_color", Colors.Yellow); lgFood.AddThemeConstantOverride("line_spacing", 0);
+        inspBox.AddChild(lgFood);
+        Label lgSocF = new Label(); lgSocF.Text = "→ Naranja: Comida social";
+        lgSocF.AddThemeColorOverride("font_color", new Color(1f, 0.6f, 0.1f)); lgSocF.AddThemeConstantOverride("line_spacing", 0);
+        inspBox.AddChild(lgSocF);
+        Label lgDang = new Label(); lgDang.Text = "→ Rojo: Peligro social";
+        lgDang.AddThemeColorOverride("font_color", Colors.Red); lgDang.AddThemeConstantOverride("line_spacing", 0);
+        inspBox.AddChild(lgDang);
+        Label lgCoh = new Label(); lgCoh.Text = "→ Celeste: Cohesión Boids";
+        lgCoh.AddThemeColorOverride("font_color", Colors.Cyan); lgCoh.AddThemeConstantOverride("line_spacing", 0);
+        inspBox.AddChild(lgCoh);
+        Label lgSep = new Label(); lgSep.Text = "→ Magenta: Separación Boids";
+        lgSep.AddThemeColorOverride("font_color", Colors.Magenta); lgSep.AddThemeConstantOverride("line_spacing", 0);
+        inspBox.AddChild(lgSep);
+        Label lgAli = new Label(); lgAli.Text = "→ Aqua: Alineación Boids";
+        lgAli.AddThemeColorOverride("font_color", new Color(0.3f, 1f, 0.8f)); lgAli.AddThemeConstantOverride("line_spacing", 0);
+        inspBox.AddChild(lgAli);
+        Label lgNeuro = new Label(); lgNeuro.Text = "→ Blanco: Salida neuronal";
+        lgNeuro.AddThemeColorOverride("font_color", Colors.White); lgNeuro.AddThemeConstantOverride("line_spacing", 0);
+        inspBox.AddChild(lgNeuro);
+        Label lgComm = new Label(); lgComm.Text = "○ Anillo cyan: Radio comunicación";
+        lgComm.AddThemeColorOverride("font_color", new Color(0, 1, 1, 0.5f)); lgComm.AddThemeConstantOverride("line_spacing", 0);
+        inspBox.AddChild(lgComm);
 
         canvas.AddChild(InspectorUI);
 
@@ -374,6 +445,32 @@ public partial class Main : Node2D
         }
     }
     
+    // Feature 11: Helper — Dibuja una flecha con cabeza triangular
+    private void DrawArrowVector(Vector2 from, Vector2 dir, float length, Color color, float width = 2f) {
+        if (dir.LengthSquared() < 0.001f) return;
+        Vector2 to = from + dir.Normalized() * length;
+        DrawLine(from, to, color, width);
+        // Cabeza de flecha
+        Vector2 arrowDir = (to - from).Normalized();
+        Vector2 perp = new Vector2(-arrowDir.Y, arrowDir.X);
+        float headSize = Mathf.Max(5f, length * 0.25f);
+        Vector2 h1 = to - arrowDir * headSize + perp * headSize * 0.5f;
+        Vector2 h2 = to - arrowDir * headSize - perp * headSize * 0.5f;
+        DrawLine(to, h1, color, width);
+        DrawLine(to, h2, color, width);
+    }
+    
+    // Feature 12: Helper — Dibuja anillo punteado del CommRadius
+    private void DrawDashedCircle(Vector2 center, float radius, Color color, int segments = 32, float width = 1.5f) {
+        for (int s = 0; s < segments; s += 2) {
+            float a1 = (float)s / segments * Mathf.Tau;
+            float a2 = (float)(s + 1) / segments * Mathf.Tau;
+            Vector2 p1 = center + new Vector2(Mathf.Cos(a1), Mathf.Sin(a1)) * radius;
+            Vector2 p2 = center + new Vector2(Mathf.Cos(a2), Mathf.Sin(a2)) * radius;
+            DrawLine(p1, p2, color, width);
+        }
+    }
+    
     public override void _Draw() {
         if (SelectedAgent != null && !SelectedAgent.IsDead) {
             var n = SelectedAgent;
@@ -381,6 +478,60 @@ public partial class Main : Node2D
             DrawArc(n.Position, 30f, 0, Mathf.Tau, 32, Colors.Cyan, 2f);
             DrawLine(n.Position - new Vector2(0, 40), n.Position + new Vector2(0, 40), new Color(0, 1, 1, 0.4f), 1f);
             DrawLine(n.Position - new Vector2(40, 0), n.Position + new Vector2(40, 0), new Color(0, 1, 1, 0.4f), 1f);
+            
+            // Feature 12: Visualizar Radio de Comunicación mutable
+            DrawDashedCircle(n.Position, n.CommRadius, new Color(0, 1, 1, 0.3f), 48, 1.5f);
+            // Etiqueta del radio
+            DrawString(defaultFont, n.Position + new Vector2(n.CommRadius + 4, -8),
+                $"R:{(int)n.CommRadius}px", HorizontalAlignment.Left, -1, 10, new Color(0, 1, 1, 0.6f));
+            
+            // ===== Feature 11: VECTORES DE DECISIÓN COMPLETOS =====
+            float vecScale = 35f; // Escala visual base
+            
+            // 1. Velocidad actual (Verde)
+            DrawArrowVector(n.Position, n.Velocity, vecScale, Colors.Green, 2.5f);
+            
+            // 2. Dirección a comida más cercana (Amarillo) — intensidad proporcional a proximidad
+            if (n.DbgFoodProximity > 0.01f) {
+                Color foodCol = new Color(1f, 1f, 0.1f, 0.4f + n.DbgFoodProximity * 0.6f);
+                DrawArrowVector(n.Position, n.DbgFoodDir, vecScale * (0.5f + n.DbgFoodProximity), foodCol, 2f);
+            }
+            
+            // 3. Dirección social a comida reportada (Naranja)
+            if (n.DbgSocialFoodDir.LengthSquared() > 0.01f) {
+                DrawArrowVector(n.Position, n.DbgSocialFoodDir, vecScale * 0.8f, new Color(1f, 0.6f, 0.1f, 0.8f), 2f);
+            }
+            
+            // 4. Dirección social de peligro (Rojo)
+            if (n.DbgSocialDangerDir.LengthSquared() > 0.01f) {
+                DrawArrowVector(n.Position, n.DbgSocialDangerDir, vecScale * 0.8f, new Color(1f, 0.2f, 0.2f, 0.8f), 2f);
+            }
+            
+            // 5. Cohesión Boids (Celeste)
+            if (n.DbgCohesion.LengthSquared() > 0.0001f) {
+                DrawArrowVector(n.Position, n.DbgCohesion, vecScale * 0.6f, new Color(0.3f, 0.9f, 1f, 0.7f), 1.5f);
+            }
+            
+            // 6. Separación Boids (Magenta)
+            if (n.DbgSeparation.LengthSquared() > 0.0001f) {
+                DrawArrowVector(n.Position, n.DbgSeparation, vecScale * 0.7f, Colors.Magenta, 1.5f);
+            }
+            
+            // 7. Alineación Boids (Aqua verde)
+            if (n.DbgAlignment.LengthSquared() > 0.0001f) {
+                DrawArrowVector(n.Position, n.DbgAlignment, vecScale * 0.5f, new Color(0.3f, 1f, 0.8f, 0.7f), 1.5f);
+            }
+            
+            // 8. Salida directa neuronal (Blanco pulsante)
+            if (n.DbgNeuralOutput.LengthSquared() > 0.01f) {
+                float pulse = 0.5f + Mathf.Sin((float)Godot.Time.GetTicksMsec() / 200f) * 0.3f;
+                DrawArrowVector(n.Position, n.DbgNeuralOutput, vecScale * 0.9f, new Color(1, 1, 1, pulse), 3f);
+            }
+            
+            // Etiqueta resumen arriba del agente
+            DrawString(defaultFont, n.Position + new Vector2(-50, -50), 
+                $"HUE:{(int)(n.RadioFrequency*360)}° | Dec:{(int)(n.DeceptionTrait*100)}% | Vecinos:{n.DbgNeighborCount}({n.DbgKindredCount})", 
+                HorizontalAlignment.Left, -1, 11, new Color(1, 1, 1, 0.9f));
         }
         
         // Emotes de Cultura (Solo renderizar si estamos muy cerca con la camara)
@@ -401,16 +552,6 @@ public partial class Main : Node2D
                 else if (n.CanReproduce) {
                     DrawString(defaultFont, n.Position + new Vector2(-6, -15), "♥", HorizontalAlignment.Center, -1, 14, Colors.HotPink);
                 }
-                
-                // Feature 11: Vectores de decisión para agente seleccionado
-                if (SelectedAgent != null && !SelectedAgent.IsDead && SelectedAgent == n) {
-                    // Flecha de velocidad (dirección actual)
-                    DrawLine(n.Position, n.Position + n.Velocity.Normalized() * 30f, Colors.Green, 2f);
-                    // Info del agente
-                    DrawString(defaultFont, n.Position + new Vector2(-30, -35), 
-                        $"HUE:{(int)(n.RadioFrequency*360)} Dec:{(int)(n.DeceptionTrait*100)}%", 
-                        HorizontalAlignment.Left, -1, 12, Colors.White);
-                }
             }
         }
     }
@@ -425,45 +566,64 @@ public partial class Main : Node2D
         AddChild(n);
     }
     
-    // Feature 9: Exportar métricas a CSV
-    private void ExportMetricsCSV() {
-        string path = "user://nanot_metrics.csv";
-        bool exists = FileAccess.FileExists(path);
-        var file = FileAccess.Open(path, FileAccess.ModeFlags.ReadWrite);
-        if (file == null) { file = FileAccess.Open(path, FileAccess.ModeFlags.Write); }
-        file.SeekEnd();
-        
-        if (!exists || file.GetLength() == 0) {
-            file.StoreLine("timestamp,population,avg_biomass,comm_ratio,avg_deception,factions_estimate");
+    // Feature 9: Exportar métricas a CSV (ruta real del filesystem)
+    private void ExportMetricsCSV(string absolutePath) {
+        try {
+            int alive = 0; float totalBio = 0; int broadcasting = 0; float totalDeception = 0;
+            float totalCommRadius = 0; float totalReward = 0; float totalAge = 0;
+            System.Collections.Generic.HashSet<int> factions = new System.Collections.Generic.HashSet<int>();
+            foreach(var n in Pop) {
+                if (n.IsDead) continue;
+                alive++;
+                totalBio += n.Metabolism.Biomass;
+                if (Mathf.Abs(n.CurrentBroadcastSignal) > 0.5f) broadcasting++;
+                totalDeception += n.DeceptionTrait;
+                totalCommRadius += n.CommRadius;
+                totalReward += n.RewardSignal;
+                totalAge += n.Age;
+                factions.Add((int)(n.RadioFrequency * 10));
+            }
+            float avgBio = alive > 0 ? totalBio / alive : 0;
+            float commR = alive > 0 ? (float)broadcasting / alive : 0;
+            float avgDec = alive > 0 ? totalDeception / alive : 0;
+            float avgComm = alive > 0 ? totalCommRadius / alive : 0;
+            float avgRew = alive > 0 ? totalReward / alive : 0;
+            float avgAge = alive > 0 ? totalAge / alive : 0;
+            ulong ts = Godot.Time.GetTicksMsec() / 1000;
+            
+            bool fileExists = System.IO.File.Exists(absolutePath);
+            using (var writer = new System.IO.StreamWriter(absolutePath, append: true)) {
+                if (!fileExists) {
+                    writer.WriteLine("timestamp,population,avg_biomass,comm_ratio,avg_deception,factions_estimate,avg_comm_radius,avg_hebbian_reward,avg_age");
+                }
+                writer.WriteLine($"{ts},{alive},{avgBio:F1},{commR:F2},{avgDec:F3},{factions.Count},{avgComm:F1},{avgRew:F4},{avgAge:F0}");
+            }
+            
+            ShowStatus($"✅ CSV exportado: {absolutePath}");
+            GD.Print($"Métricas exportadas a {absolutePath}");
+        } catch (System.Exception ex) {
+            ShowStatus($"❌ Error al exportar CSV: {ex.Message}");
+            GD.PrintErr($"Error exportando CSV: {ex.Message}");
         }
-        
-        int alive = 0; float totalBio = 0; int broadcasting = 0; float totalDeception = 0;
-        System.Collections.Generic.HashSet<int> factions = new System.Collections.Generic.HashSet<int>();
-        foreach(var n in Pop) {
-            if (n.IsDead) continue;
-            alive++;
-            totalBio += n.Metabolism.Biomass;
-            if (Mathf.Abs(n.CurrentBroadcastSignal) > 0.5f) broadcasting++;
-            totalDeception += n.DeceptionTrait;
-            factions.Add((int)(n.RadioFrequency * 10)); // 10 bandas de frecuencia
-        }
-        float avgBio = alive > 0 ? totalBio / alive : 0;
-        float commR = alive > 0 ? (float)broadcasting / alive : 0;
-        float avgDec = alive > 0 ? totalDeception / alive : 0;
-        
-        ulong ts = Godot.Time.GetTicksMsec() / 1000;
-        file.StoreLine($"{ts},{alive},{avgBio:F1},{commR:F2},{avgDec:F3},{factions.Count}");
-        file.Close();
-        GD.Print($"Métricas exportadas a {path}");
+    }
+    
+    private void ShowStatus(string msg) {
+        LblStatus.Text = msg;
+        LblStatus.Visible = true;
+        StatusTimer = 4.0f; // Mostrar por 4 segundos
     }
 
     public override void _Process(double delta)
     {
         float dt = (float)delta * 60f; // Normalizar a 60fps base
-        // 0. Auto-Sustento Poblacional (Target Population)
-        while(Pop.Count < TargetPopulation && Pop.Count < POP_LIMIT) {
-            SpawnNanot(new Vector2((float)GD.RandRange(0, ScreenSize.X), (float)GD.RandRange(0, ScreenSize.Y)));
+        // Status Toast Timer
+        if (StatusTimer > 0) {
+            StatusTimer -= (float)delta;
+            if (StatusTimer <= 0) { LblStatus.Visible = false; }
         }
+        
+        // El auto-sustento por generación espontánea fue removido (Feature: Reproducción Nativa)
+        // Los Nanots ahora deben reproducirse metabólicamente para alcanzar TargetPopulation.
         
         // Purgar muertos y generar biomasa residual
         for(int i = Pop.Count - 1; i >= 0; i--) {
@@ -529,6 +689,10 @@ public partial class Main : Node2D
             float avgSignal = validSignals > 0 ? localSignalSum / validSignals : 0f;
             if (foodReports > 0) { socialFoodDirX /= foodReports; socialFoodDirY /= foodReports; }
             if (dangerReports > 0) { socialDangerDirX /= dangerReports; socialDangerDirY /= dangerReports; }
+            
+            // Feature 11: Almacenar vectores sociales para debug visual
+            agent.DbgSocialFoodDir = new Vector2(socialFoodDirX, socialFoodDirY);
+            agent.DbgSocialDangerDir = new Vector2(socialDangerDirX, socialDangerDirY);
             // -----------------------------
             
             int offset = i * NEAT.Inputs;
@@ -553,10 +717,15 @@ public partial class Main : Node2D
                 FlatInputs[offset + 4] = foodDir.X; // Dirección X a comida
                 FlatInputs[offset + 5] = foodDir.Y; // Dirección Y a comida
                 FlatInputs[offset + 6] = 1.0f - Mathf.Clamp(Mathf.Sqrt(closestFoodDist) / 200f, 0, 1); // Proximidad (1=encima, 0=lejos)
+                // Feature 11: Almacenar vector de comida para debug visual
+                agent.DbgFoodDir = foodDir;
+                agent.DbgFoodProximity = FlatInputs[offset + 6];
             } else {
                 FlatInputs[offset + 4] = 0;
                 FlatInputs[offset + 5] = 0;
                 FlatInputs[offset + 6] = 0;
+                agent.DbgFoodDir = Vector2.Zero;
+                agent.DbgFoodProximity = 0f;
             }
             // --- Inputs enérgicos y ambientales (7-13) ---
             var envProps = Env.Topography.GetPropsAt(agent.Position.X, agent.Position.Y);
@@ -588,6 +757,9 @@ public partial class Main : Node2D
             float[] outs = BCP.GetOutputsForAgent(i);
             // Salidas [-1, 1] desde la Tanh de GLSL Compute
             agent.ApplyForce(new Vector2(outs[0], outs[1]) * agent.MaxForce);
+            
+            // Feature 11: Almacenar salida neuronal para debug visual
+            agent.DbgNeuralOutput = new Vector2(outs[0], outs[1]);
             
             // --- APRENDIZAJE HEBBIANO (intra-vida) ---
             // Calcular recompensa: ¿ganó o perdió biomasa desde el frame anterior?
@@ -642,15 +814,15 @@ public partial class Main : Node2D
             if (agent.RadioFrequency > 1f) agent.RadioFrequency -= 1f;
             
             // Acciones Estigmérgicas (Out 6)
-            if (outs[6] > 0.5f && agent.Metabolism.Biomass > 20f) {
+            if (outs[6] > 0.5f && agent.Metabolism.Biomass > 2f) {
                 // Instinto de construcción
                 if (StigGrid.PlaceTile(agent.Position)) { // True si estaba libre y ahora es conductor
-                    agent.Metabolism.Biomass -= 20f;
+                    agent.Metabolism.Biomass -= 2f;
                 }
             } else if (outs[6] < -0.5f) {
                 // Instinto de descomposición
                 if (StigGrid.DestroyTile(agent.Position)) { // True si había estructura
-                    agent.Metabolism.Biomass += 10f; // Reabsorción
+                    agent.Metabolism.Ingest("BIOMASS", 1f); // Reabsorción balanceada
                 }
             }
             
@@ -659,12 +831,27 @@ public partial class Main : Node2D
                 StigGrid.EnergizeTileFromEntity(agent.Position);
             }
             
+            // --- INSTINTO ANIMAL BÁSICO (Prioridad Supervivencia) ---
+            // Evaluar hambre: si tienen hambre y perciben comida, priorizan comer por instinto
+            float hungerRatio = agent.Metabolism.Biomass / agent.Metabolism.MaxBiomass;
+            if (hungerRatio < 0.6f && agent.DbgFoodDir != Vector2.Zero) {
+                float desperacion = 1.0f - (hungerRatio / 0.6f); // 0 a 1 dependiendo del hambre
+                // Aplicar un tirón fuerte y natural hacia la comida, sobreescribiendo otras fuerzas aleatorias
+                Vector2 instintoComida = agent.DbgFoodDir * agent.MaxForce * (2.5f + desperacion * 7.0f);
+                agent.ApplyForce(instintoComida);
+                
+                // Si están muy hambrientos, instintivamente frenan los gritos y construcciones para no morir
+                if (desperacion > 0.5f) {
+                    agent.CurrentBroadcastSignal *= 0.1f;
+                }
+            }
+
             agent.AgentUpdate(ScreenSize, dt);
             
             // Consumo de Biomasa (Radio ampliado 400px² = ~20px)
             foreach(var f in FoodMgr.Pellets) {
                 if (!f.IsRotten && agent.Position.DistanceSquaredTo(f.Position) < 400.0f) {
-                    agent.Metabolism.Biomass += f.Value;
+                    agent.Metabolism.Ingest("BIOMASS", f.Value);
                     f.Value = 0;
                 }
             }
@@ -711,13 +898,24 @@ public partial class Main : Node2D
                     }
                 }
             }
+            // Feature 11: Contar vecinos para debug visual
+            agent.DbgNeighborCount = socialNeighbors.Count - 1; // Excluir a sí mismo
+            agent.DbgKindredCount = kindred;
+            
             if (kindred > 0) {
                 cohesion /= kindred;
                 alignment /= kindred;
                 agent.ApplyForce(cohesion.Normalized() * 0.008f); // Cohesión
                 agent.ApplyForce(alignment.Normalized() * 0.005f); // Alineación
+                // Feature 11: Almacenar Boids para debug visual
+                agent.DbgCohesion = cohesion.Normalized();
+                agent.DbgAlignment = alignment.Normalized();
+            } else {
+                agent.DbgCohesion = Vector2.Zero;
+                agent.DbgAlignment = Vector2.Zero;
             }
             agent.ApplyForce(separation * 0.03f); // Separación (más fuerte)
+            agent.DbgSeparation = separation; // Feature 11
             
             // Feature 7: Engaño - El agente puede mentir sobre recursos
             if (agent.CurrentBroadcastSignal > 0.5f && GD.Randf() < agent.DeceptionTrait) {
@@ -725,7 +923,8 @@ public partial class Main : Node2D
             }
             
             // Feature 3: Reproducción SEXUAL (2 padres + crossover)
-            if (agent.CanReproduce && (Pop.Count + babies.Count < POP_LIMIT)) {
+            // Solo pueden nacer nuevos nanots si la población actual permite acercarse a la objetivo
+            if (agent.CanReproduce && (Pop.Count + babies.Count < TargetPopulation)) {
                 agent.CanReproduce = false;
                 
                 // Buscar pareja compatible cercana (misma especie, también fértil)
@@ -768,8 +967,10 @@ public partial class Main : Node2D
                     (agent.DeceptionTrait + mateDeception) / 2f + (float)GD.RandRange(-0.05, 0.05),
                     0f, 1f
                 );
+                // Feature 12: CommRadius mutable con crossover sexual real
+                float mateComm = mate != null ? mate.CommRadius : agent.CommRadius;
                 baby.CommRadius = Mathf.Clamp(
-                    agent.CommRadius + (float)GD.RandRange(-5, 5),
+                    (agent.CommRadius + mateComm) / 2f + (float)GD.RandRange(-8, 8),
                     20f, 120f
                 );
                 
@@ -850,6 +1051,13 @@ public partial class Main : Node2D
                 LblInspEnergy.Text = $"Biomasa: {ag.Metabolism.Biomass:F1} / {ag.Metabolism.MaxBiomass:F1}";
                 LblInspAge.Text = $"Edad Biol: {ag.Age} ticks";
                 LblInspFaction.Text = $"Idioma (HUE): {(int)(ag.RadioFrequency * 360)}°";
+                LblInspCommRadius.Text = $"Radio Comunic: {(int)ag.CommRadius}px [20-120]";
+                LblInspCommRadius.AddThemeColorOverride("font_color", new Color(0, 1, 1, 1));
+                LblInspDeception.Text = $"Engaño: {(int)(ag.DeceptionTrait * 100)}%";
+                LblInspDeception.AddThemeColorOverride("font_color", ag.DeceptionTrait > 0.5f ? Colors.Red : Colors.Green);
+                LblInspNeighbors.Text = $"Vecinos: {ag.DbgNeighborCount} total | {ag.DbgKindredCount} especie";
+                LblInspReward.Text = $"Recompensa Hebbiana: {ag.RewardSignal:F3}";
+                LblInspReward.AddThemeColorOverride("font_color", ag.RewardSignal > 0 ? Colors.Green : Colors.Red);
                 
                 string st = "SUPERVIVENCIA";
                 if (Mathf.Abs(ag.CurrentBroadcastSignal) > 0.8f) st = "VOCALIZANDO (P2P)";

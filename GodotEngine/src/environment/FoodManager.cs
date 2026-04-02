@@ -65,7 +65,7 @@ public partial class FoodManager : MultiMeshInstance2D
             
             for(int i = 0; i < PelletsPerSpawn; i++) {
                 Vector2 offset = new Vector2(rng.RandfRange(-60, 60), rng.RandfRange(-60, 60));
-                DropFood(focalPoint + offset, rng.RandfRange(15f, 40f));
+                DropFood(focalPoint + offset, rng.RandfRange(60f, 75f));
             }
         }
 
