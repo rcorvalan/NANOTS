@@ -11,10 +11,14 @@ public partial class Nanot : Node2D
     
     public int PoolIndex = -1;
     public bool IsDead = false;
+    
+    public MetabolicSynthesis Metabolism;
 
     public void Initialize(Vector2 startPosition)
     {
         Position = startPosition;
+        Metabolism = new MetabolicSynthesis(100f, 0f);
+        
         // Random velocity
         RandomNumberGenerator rng = new RandomNumberGenerator();
         rng.Randomize();
@@ -51,5 +55,10 @@ public partial class Nanot : Node2D
         if (pos.Y < 0) { pos.Y = 0; Velocity.Y *= -1; }
         if (pos.Y > bounds.Y) { pos.Y = bounds.Y; Velocity.Y *= -1; }
         Position = pos;
+    }
+    
+    public void Die() {
+        IsDead = true;
+        QueueFree(); // Desvincular limpieza de memoria automática de Godot
     }
 }

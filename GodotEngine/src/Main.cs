@@ -7,10 +7,18 @@ public partial class Main : Node2D
     private Vector2 ScreenSize;
     private List<Nanot> Pop = new List<Nanot>();
     private const int POP_LIMIT = 1000;
+    
+    // Entorno Topográfico
+    private GlobalEnvironment Env;
 
     public override void _Ready()
     {
         ScreenSize = GetViewportRect().Size;
+        
+        // Cargar Entorno
+        Env = new GlobalEnvironment();
+        AddChild(Env);
+        Env.Initialize(ScreenSize.X, ScreenSize.Y);
         
         // Inicializar Agentes visuales
         for(int i = 0; i < 50; i++) {
@@ -56,6 +64,9 @@ public partial class Main : Node2D
         foreach(var agent in Pop) {
             agent.AgentUpdate(ScreenSize);
         }
+        
+        // 3. Entorno Natural y Decaimiento
+        Env.UpdateEnv(Pop, 2.0f);
         
         // Forzar redibujado de la interfaz visual
         QueueRedraw();

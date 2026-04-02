@@ -15,3 +15,4 @@ C:\Users\rcorv\OneDrive - Adecua SpA\Escritorio\Nanots\GodotEngine\.godot\mono\t
 C:\Users\rcorv\OneDrive - Adecua SpA\Escritorio\Nanots\GodotEngine\.godot\mono\temp\obj\Debug\Nanot Sandbox.pdb
 C:\Users\rcorv\OneDrive - Adecua SpA\Escritorio\Nanots\GodotEngine\.godot\mono\temp\obj\Debug\Nanot Sandbox.genruntimeconfig.cache
 C:\Users\rcorv\OneDrive - Adecua SpA\Escritorio\Nanots\GodotEngine\.godot\mono\temp\obj\Debug\ref\Nanot Sandbox.dll
+C:\Users\rcorv\OneDrive - Adecua SpA\Escritorio\Nanots\GodotEngine\.godot\mono\temp\obj\Debug\Nanot Sandbox.sourcelink.json
