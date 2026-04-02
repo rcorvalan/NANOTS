@@ -49,6 +49,23 @@ La toma de decisiones de cada agente está impulsada por una **red neuronal feed
 - **Inicialización Xavier/He** aleatoria para diversidad poblacional inicial.
 - **Mutación estocástica** por gen con clamp de pesos en `[-5f, 5f]`.
 - **Crossover genético** (recombinación uniforme): los hijos heredan genes aleatoriamente de padre A o padre B.
+- **Aprendizaje Hebbiano (intra-vida)**: Los pesos neuronales se refuerzan cuando el agente gana biomasa (+reward) y se debilitan cuando pierde biomasa (-punishment). Cada individuo **mejora durante su vida**, no solo entre generaciones.
+
+### 📡 Comunicación Semántica P2P
+
+Los Nanots no emiten un simple número — transmiten **señales estructuradas** con contenido:
+
+| Campo | Significado |
+|-------|-------------|
+| `SignalType` | >0.5 = "Hay comida" · <-0.5 = "Hay peligro" |
+| `SignalDirX/Y` | Dirección normalizada hacia el recurso/amenaza |
+
+**Flujo de información social:**
+1. Un Nanot detecta comida cercana (<50px) → emite `COMIDA + dirección`
+2. Vecinos de la misma especie reciben la señal → la filtran por `TrustLedger`
+3. Si confían en el emisor → aplican fuerza hacia la dirección indicada
+4. Si llegan y encuentran comida → aumentan confianza del emisor
+5. Si el emisor era mentiroso (`DeceptionTrait`) → invierte la dirección y pierde reputación
 
 **El paso de inferencia biológica procesa en la GPU vía Vulkan Compute:**
 - El shader `BrainCompute.glsl` evalúa **64 agentes en paralelo** por invocación del procesador, operando asíncronamente con C#.
