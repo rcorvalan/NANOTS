@@ -22,7 +22,7 @@ public partial class Nanot : Node2D
     public void Initialize(Vector2 startPosition)
     {
         Position = startPosition;
-        Metabolism = new MetabolicSynthesis(100f, 0f);
+        Metabolism = new MetabolicSynthesis(150f, 10f); // Más vida inicial
         
         // Random velocity
         RandomNumberGenerator rng = new RandomNumberGenerator();
@@ -40,7 +40,7 @@ public partial class Nanot : Node2D
         }
     }
     
-    public void AgentUpdate(Vector2 bounds)
+    public void AgentUpdate(Vector2 bounds, float dt = 1.0f)
     {
         if (IsDead) return;
         
@@ -48,7 +48,7 @@ public partial class Nanot : Node2D
         
         Velocity += Acceleration;
         Velocity = Velocity.LimitLength(MaxSpeed);
-        Position += Velocity;
+        Position += Velocity * dt;
         Acceleration = Vector2.Zero;
         
         CheckEdges(bounds);

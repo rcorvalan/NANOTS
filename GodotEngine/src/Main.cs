@@ -21,6 +21,14 @@ public partial class Main : Node2D
 
     private MultiMeshInstance2D MMInst;
     private MultiMesh MM;
+    private Camera2D Cam;
+    private bool IsDragging = false;
+    
+    // Inspeccion Individual
+    private Nanot SelectedAgent = null;
+    private PanelContainer InspectorUI;
+    private Label LblInspEnergy, LblInspAge, LblInspFaction, LblInspState;
+    private Font defaultFont;
 
     // Constantes/Controles de Simulacion
     private float MutationRate = 0.1f;
@@ -49,12 +57,19 @@ public partial class Main : Node2D
         
         FoodMgr = new FoodManager();
         AddChild(FoodMgr);
+        FoodMgr.SetWorldSize(ScreenSize.X, ScreenSize.Y);
         
         // Cargar MultiMesh +10000 limit
         SetupMultiMesh();
         
         // La población inicial ahora es disparada por el bucle _Process
         // gracias a TargetPopulation = 50;
+
+        Cam = new Camera2D();
+        Cam.Position = new Vector2(ScreenSize.X / 2, ScreenSize.Y / 2);
+        AddChild(Cam);
+        
+        defaultFont = ThemeDB.FallbackFont;
     }
 
     private void SetupMultiMesh() {
@@ -255,10 +270,114 @@ public partial class Main : Node2D
         lgF.AddThemeColorOverride("font_color", new Color(1f, 0.9f, 0.1f, 1));
         lgBox.AddChild(lgF);
 
+        lgBox.AddChild(new HSeparator());
+        
+        Label lgST = new Label(); lgST.Text = "SIGNOS FLOTANTES";
+        lgST.AddThemeColorOverride("font_color", new Color(1, 1, 1, 1));
+        lgBox.AddChild(lgST);
+        
+        Label lgE1 = new Label(); lgE1.Text = "! Hambre crítica (Biomasa < 15)";
+        lgE1.AddThemeColorOverride("font_color", Colors.Red);
+        lgBox.AddChild(lgE1);
+        
+        Label lgE2 = new Label(); lgE2.Text = "♫ Vocalzando (Broadcast P2P fuerte)";
+        lgE2.AddThemeColorOverride("font_color", Colors.Cyan);
+        lgBox.AddChild(lgE2);
+
         canvas.AddChild(legend);
+
+        // --- PANEL DE INSPECCION INDIVIDUAL (MICROSCÓPIO) ---
+        InspectorUI = new PanelContainer();
+        InspectorUI.Position = new Vector2(ScreenSize.X - 350, ScreenSize.Y - 180);
+        InspectorUI.Visible = false;
+        
+        StyleBoxFlat bgInsp = new StyleBoxFlat();
+        bgInsp.BgColor = new Color(0.1f, 0.1f, 0.2f, 0.95f);
+        bgInsp.SetCornerRadiusAll(12);
+        bgInsp.BorderWidthLeft = 2; bgInsp.BorderColor = new Color(0.2f, 1f, 1f, 0.8f);
+        bgInsp.ContentMarginLeft = 15; bgInsp.ContentMarginTop = 15;
+        InspectorUI.AddThemeStyleboxOverride("panel", bgInsp);
+
+        VBoxContainer inspBox = new VBoxContainer();
+        InspectorUI.AddChild(inspBox);
+        
+        Label inspTitul = new Label(); inspTitul.Text = "🔬 MICROSCOPIO NEURAL";
+        inspTitul.AddThemeColorOverride("font_color", new Color(0.7f, 1f, 1f, 1));
+        inspBox.AddChild(inspTitul);
+        inspBox.AddChild(new HSeparator());
+
+        LblInspState = new Label(); LblInspState.Text = "ESTADO: BÚSQUEDA";
+        LblInspEnergy = new Label();
+        LblInspAge = new Label();
+        LblInspFaction = new Label();
+        inspBox.AddChild(LblInspState);
+        inspBox.AddChild(LblInspEnergy);
+        inspBox.AddChild(LblInspAge);
+        inspBox.AddChild(LblInspFaction);
+
+        canvas.AddChild(InspectorUI);
 
         // Inject
         AddChild(canvas);
+    }
+
+    public override void _UnhandledInput(InputEvent @event) {
+        if (@event is InputEventMouseButton mb) {
+            if (mb.ButtonIndex == MouseButton.WheelUp) { Cam.Zoom *= 1.1f; }
+            if (mb.ButtonIndex == MouseButton.WheelDown) { Cam.Zoom *= 0.9f; }
+            Cam.Zoom = Cam.Zoom.Clamp(new Vector2(0.3f, 0.3f), new Vector2(5f, 5f));
+            if (mb.ButtonIndex == MouseButton.Middle || mb.ButtonIndex == MouseButton.Right) {
+                IsDragging = mb.Pressed;
+            }
+            if (mb.ButtonIndex == MouseButton.Left && mb.Pressed) {
+                // Raycast matemático a mano O(n)
+                Vector2 gp = GetGlobalMousePosition();
+                float closestDist = float.MaxValue;
+                Nanot closestAgent = null;
+                foreach(var n in Pop) {
+                    if(n.IsDead) continue;
+                    float d = n.Position.DistanceSquaredTo(gp);
+                    if (d < 1500f && d < closestDist) {
+                        closestDist = d;
+                        closestAgent = n;
+                    }
+                }
+                SelectedAgent = closestAgent;
+            }
+        }
+        else if (@event is InputEventMouseMotion mm && IsDragging) {
+            Cam.Position -= mm.Relative / Cam.Zoom;
+        }
+    }
+    
+    public override void _Draw() {
+        if (SelectedAgent != null && !SelectedAgent.IsDead) {
+            var n = SelectedAgent;
+            // Dibujar mira de seguimiento holográfica
+            DrawArc(n.Position, 30f, 0, Mathf.Tau, 32, Colors.Cyan, 2f);
+            DrawLine(n.Position - new Vector2(0, 40), n.Position + new Vector2(0, 40), new Color(0, 1, 1, 0.4f), 1f);
+            DrawLine(n.Position - new Vector2(40, 0), n.Position + new Vector2(40, 0), new Color(0, 1, 1, 0.4f), 1f);
+        }
+        
+        // Emotes de Cultura (Solo renderizar si estamos muy cerca con la camara)
+        if (Cam != null && Cam.Zoom.X > 1.2f) {
+            Rect2 viewBounds = new Rect2(Cam.Position - (ScreenSize / (2 * Cam.Zoom)), ScreenSize / Cam.Zoom);
+            foreach(var n in Pop) {
+                if (n.IsDead || !viewBounds.HasPoint(n.Position)) continue;
+                
+                if (n.Metabolism.Biomass < 15f) {
+                    DrawString(defaultFont, n.Position + new Vector2(-4, -15), "!", HorizontalAlignment.Center, -1, 14, Colors.Red);
+                } 
+                else if (Mathf.Abs(n.CurrentBroadcastSignal) > 0.8f) {
+                    DrawString(defaultFont, n.Position + new Vector2(-6, -15), "♫", HorizontalAlignment.Center, -1, 16, Colors.Cyan);
+                }
+                
+                // Si está seleccionando objetivo depredador
+                if (SelectedAgent != null && !SelectedAgent.IsDead && SelectedAgent == n) {
+                    DrawString(defaultFont, n.Position + new Vector2(-20, -35), $"HUE: {(int)(n.RadioFrequency * 360)}", HorizontalAlignment.Left, -1, 14, Colors.White);
+                }
+            }
+        }
     }
 
     private void SpawnNanot(Vector2 pos)
@@ -266,12 +385,14 @@ public partial class Main : Node2D
         if (Pop.Count >= POP_LIMIT) return;
         Nanot n = new Nanot();
         n.Initialize(pos);
+        n.PoolIndex = Pop.Count;
         Pop.Add(n);
         AddChild(n);
     }
 
     public override void _Process(double delta)
     {
+        float dt = (float)delta * 60f; // Normalizar a 60fps base
         // 0. Auto-Sustento Poblacional (Target Population)
         while(Pop.Count < TargetPopulation && Pop.Count < POP_LIMIT) {
             SpawnNanot(new Vector2((float)GD.RandRange(0, ScreenSize.X), (float)GD.RandRange(0, ScreenSize.Y)));
@@ -326,10 +447,42 @@ public partial class Main : Node2D
             int offset = i * NEAT.Inputs;
             FlatInputs[offset] = agent.Position.X / ScreenSize.X;
             FlatInputs[offset + 1] = agent.Position.Y / ScreenSize.Y;
-            FlatInputs[offset + 2] = Mathf.Clamp(neighborCount / 20.0f, 0, 1); // Densidad local (normalizada)
+            FlatInputs[offset + 2] = Mathf.Clamp(neighborCount / 20.0f, 0, 1);
             FlatInputs[offset + 3] = agent.Metabolism.Biomass / agent.Metabolism.MaxBiomass;
-            FlatInputs[offset + 14] = StigGrid.CheckTile(agent.Position) > 0 ? 1.0f : 0.0f; // SENTIDO BIOLÓGICO: Tocar el suelo
-            FlatInputs[offset + 15] = avgSignal; // <--- INYECCIÓN LINGÜÍSTICA
+            
+            // --- Sentido de Comida (Inputs 4-7): Dirección y distancia a la comida más próxima ---
+            float closestFoodDist = float.MaxValue;
+            Vector2 foodDir = Vector2.Zero;
+            foreach(var f in FoodMgr.Pellets) {
+                if (f.IsRotten) continue;
+                float d = agent.Position.DistanceSquaredTo(f.Position);
+                if (d < closestFoodDist) {
+                    closestFoodDist = d;
+                    foodDir = (f.Position - agent.Position);
+                }
+            }
+            if (closestFoodDist < 40000f) { // Solo percibe comida hasta ~200px
+                foodDir = foodDir.Normalized();
+                FlatInputs[offset + 4] = foodDir.X; // Dirección X a comida
+                FlatInputs[offset + 5] = foodDir.Y; // Dirección Y a comida
+                FlatInputs[offset + 6] = 1.0f - Mathf.Clamp(Mathf.Sqrt(closestFoodDist) / 200f, 0, 1); // Proximidad (1=encima, 0=lejos)
+            } else {
+                FlatInputs[offset + 4] = 0;
+                FlatInputs[offset + 5] = 0;
+                FlatInputs[offset + 6] = 0;
+            }
+            // --- Inputs enérgicos y ambientales (7-13) ---
+            var envProps = Env.Topography.GetPropsAt(agent.Position.X, agent.Position.Y);
+            FlatInputs[offset + 7] = envProps.heat; // Temperatura local [-1, 1]
+            FlatInputs[offset + 8] = envProps.radiation; // Radiación local [0, 1]
+            FlatInputs[offset + 9] = agent.Metabolism.Mineral / agent.Metabolism.MaxMineral; // Nivel mineral
+            FlatInputs[offset + 10] = agent.Age / 5000f; // Edad normalizada
+            FlatInputs[offset + 11] = agent.Velocity.Length() / agent.MaxSpeed; // Velocidad normalizada
+            FlatInputs[offset + 12] = agent.RadioFrequency; // Su propia frecuencia
+            FlatInputs[offset + 13] = Mathf.Clamp((float)validSignals / 10f, 0, 1); // Densidad de compatriotas cercanos
+            
+            FlatInputs[offset + 14] = StigGrid.CheckTile(agent.Position) > 0 ? 1.0f : 0.0f;
+            FlatInputs[offset + 15] = avgSignal;
         }
 
         // 2. Compute Shaders (GPU Dispatcher nativo Godot)
@@ -373,15 +526,31 @@ public partial class Main : Node2D
                 StigGrid.EnergizeTileFromEntity(agent.Position);
             }
             
-            agent.AgentUpdate(ScreenSize);
+            agent.AgentUpdate(ScreenSize, dt);
             
-            // Consumo de Biomasa (Trófico O(n)) - solo chequeamos los mas cercanos si es posible
-            // Simplificado para este contexto:
+            // Consumo de Biomasa (Radio ampliado 400px² = ~20px)
             foreach(var f in FoodMgr.Pellets) {
-                if (!f.IsRotten && agent.Position.DistanceSquaredTo(f.Position) < 100.0f) {
+                if (!f.IsRotten && agent.Position.DistanceSquaredTo(f.Position) < 400.0f) {
                     agent.Metabolism.Biomass += f.Value;
                     f.Value = 0;
                 }
+            }
+            
+            // --- FUERZA SOCIAL: Atracción a pares de misma frecuencia ---
+            List<Nanot> socialNeighbors = new List<Nanot>();
+            qt.Query(new Rect2(agent.Position.X - 80, agent.Position.Y - 80, 160, 160), socialNeighbors);
+            Vector2 cohesion = Vector2.Zero;
+            int kindred = 0;
+            foreach(var sn in socialNeighbors) {
+                if (sn == agent || sn.IsDead) continue;
+                if (Mathf.Abs(sn.RadioFrequency - agent.RadioFrequency) < 0.1f) {
+                    cohesion += (sn.Position - agent.Position);
+                    kindred++;
+                }
+            }
+            if (kindred > 0) {
+                cohesion /= kindred;
+                agent.ApplyForce(cohesion.Normalized() * 0.01f); // Fuerza suave hacia el grupo
             }
             
             // Reglas de Mitosis Biológica
@@ -395,7 +564,13 @@ public partial class Main : Node2D
                 
                 int childIndex = Pop.Count + babies.Count;
                 NEAT.Inherit(childIndex, i);
-                NEAT.Mutate(childIndex, MutationRate); // Mutación enlazada al Dashboard
+                NEAT.Mutate(childIndex, MutationRate);
+                
+                // Heredar frecuencia (idioma) del padre con pequeña variación
+                baby.RadioFrequency = agent.RadioFrequency + (float)GD.RandRange(-0.03, 0.03);
+                if (baby.RadioFrequency < 0) baby.RadioFrequency += 1f;
+                if (baby.RadioFrequency > 1f) baby.RadioFrequency -= 1f;
+                baby.PoolIndex = childIndex;
                 
                 babies.Add(baby);
             }
@@ -407,8 +582,8 @@ public partial class Main : Node2D
             Pop.AddRange(babies);
         }
         
-        // 4. Entorno Natural y Decaimiento
-        Env.UpdateEnv(Pop, 2.0f);
+        // 4. Entorno Natural y Decaimiento (con Radiación Mutágena Real)
+        Env.UpdateEnv(Pop, 2.0f, NEAT);
         StigGrid.UpdateAutomata();
         FoodMgr.UpdateAndRender();
         
@@ -440,7 +615,51 @@ public partial class Main : Node2D
         ulong mins = (timeSeconds % 3600) / 60;
         ulong secs = timeSeconds % 60;
         
-        LblPop.Text = $"Nanots: {alive}/{POP_LIMIT} | FPS: {Engine.GetFramesPerSecond()} | T {hours:D2}:{mins:D2}:{secs:D2}";
-        LblResource.Text = $"Decay Base: Activo | Entorno: Autónomo";
+        // Evaluador Cultural Intuitivo (Usa múltiples métricas)
+        float avgBiomass = 0;
+        int broadcastCount = 0;
+        int stigBlocks = 0;
+        foreach(var n in Pop) {
+            if (n.IsDead) continue;
+            avgBiomass += n.Metabolism.Biomass;
+            if (Mathf.Abs(n.CurrentBroadcastSignal) > 0.5f) broadcastCount++;
+        }
+        avgBiomass = alive > 0 ? avgBiomass / alive : 0;
+        float commRatio = alive > 0 ? (float)broadcastCount / alive : 0;
+        
+        string popGrade;
+        if (alive < 5) popGrade = "⚠ EXTINCIÓN INMINENTE";
+        else if (alive < 30) popGrade = "🔥 Supervivientes Aislados";
+        else if (commRatio < 0.1f) popGrade = "🧍 Nómadas Silenciosos";
+        else if (commRatio < 0.3f && alive < 200) popGrade = "🏚 Cazadores-Recolectores";
+        else if (commRatio >= 0.3f && alive < 500) popGrade = "🏠 Tribus Comunicantes";
+        else if (alive >= 500 && commRatio >= 0.3f) popGrade = "🏛 Civilización Emergente";
+        else if (alive > 2000) popGrade = "🌍 Sociedad Compleja";
+        else popGrade = "🌱 Colonias en Expansión";
+        if (alive > 5000) popGrade = "⚠ Sobrepoblación Severa";
+        
+        LblPop.Text = $"Población: {alive}/{POP_LIMIT} | FPS: {Engine.GetFramesPerSecond()} | T {hours:D2}:{mins:D2}:{secs:D2}";
+        LblResource.Text = $"{popGrade} | Comunicando: {(int)(commRatio*100)}% | Biomasa Prom: {avgBiomass:F0}";
+
+        if (SelectedAgent != null) {
+            if (SelectedAgent.IsDead) { SelectedAgent = null; InspectorUI.Visible = false; }
+            else {
+                var ag = SelectedAgent;
+                InspectorUI.Visible = true;
+                LblInspEnergy.Text = $"Biomasa: {ag.Metabolism.Biomass:F1} / {ag.Metabolism.MaxBiomass:F1}";
+                LblInspAge.Text = $"Edad Biol: {ag.Age} ticks";
+                LblInspFaction.Text = $"Idioma (HUE): {(int)(ag.RadioFrequency * 360)}°";
+                
+                string st = "SUPERVIVENCIA";
+                if (Mathf.Abs(ag.CurrentBroadcastSignal) > 0.8f) st = "VOCALIZANDO (P2P)";
+                if (ag.Metabolism.Biomass < 20f) st = "HAMBRE CRÍTICA";
+                if (ag.CanReproduce) st = "PREPARADO PARA MITOSIS";
+                LblInspState.Text = $"ESTADO: {st}";
+            }
+        } else {
+            InspectorUI.Visible = false;
+        }
+
+        QueueRedraw();
     }
 }

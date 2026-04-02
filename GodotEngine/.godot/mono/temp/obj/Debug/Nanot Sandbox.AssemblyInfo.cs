@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("Nanot Sandbox")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+677974d28eaa87c28e72ac36cc511b0c58f10618")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+8656a2251d02c45fac628c9ddf9fefee370cc3ce")]
 [assembly: System.Reflection.AssemblyProductAttribute("Nanot Sandbox")]
 [assembly: System.Reflection.AssemblyTitleAttribute("Nanot Sandbox")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

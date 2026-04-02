@@ -14,6 +14,10 @@ public partial class FoodManager : MultiMeshInstance2D
 {
     public List<FoodPellet> Pellets = new List<FoodPellet>();
     private const int MAX_PELLETS = 10000;
+    private float SpawnTimer = 0f;
+    private float SpawnInterval = 0.2f; // Cada 0.2 segundos genera un lote
+    private int PelletsPerSpawn = 5;
+    private float WorldW, WorldH;
     
     public override void _Ready()
     {
@@ -30,6 +34,11 @@ public partial class FoodManager : MultiMeshInstance2D
         
         // El color estandar sera manejado por instancia
     }
+
+    public void SetWorldSize(float w, float h) {
+        WorldW = w;
+        WorldH = h;
+    }
     
     public void DropFood(Vector2 pos, float value)
     {
@@ -44,9 +53,25 @@ public partial class FoodManager : MultiMeshInstance2D
     
     public void UpdateAndRender()
     {
-        // Pudrir alimento (-0.1f de valor nutricional por frame)
+        // Generación ambiental periódica de comida
+        SpawnTimer += 0.016f; // ~60fps
+        if (SpawnTimer >= SpawnInterval && Pellets.Count < MAX_PELLETS - 100) {
+            SpawnTimer = 0f;
+            RandomNumberGenerator rng = new RandomNumberGenerator();
+            rng.Randomize();
+            
+            // Punto focal del racimo (la comida crece agrupada como en la naturaleza)
+            Vector2 focalPoint = new Vector2(rng.RandfRange(80, WorldW - 80), rng.RandfRange(80, WorldH - 80));
+            
+            for(int i = 0; i < PelletsPerSpawn; i++) {
+                Vector2 offset = new Vector2(rng.RandfRange(-60, 60), rng.RandfRange(-60, 60));
+                DropFood(focalPoint + offset, rng.RandfRange(15f, 40f));
+            }
+        }
+
+        // Pudrir alimento (-0.02f en vez de -0.1f para que dure más)
         foreach(var p in Pellets) {
-            p.Value -= 0.1f;
+            p.Value -= 0.02f;
         }
         
         // Purgar la biomasa podrida o comida
