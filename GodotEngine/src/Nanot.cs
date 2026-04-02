@@ -1,5 +1,6 @@
 using Godot;
 using System;
+using System.Collections.Generic;
 
 public partial class Nanot : Node2D
 {
@@ -13,31 +14,48 @@ public partial class Nanot : Node2D
     public bool IsDead = false;
     public bool CanReproduce = false;
     public int Age = 0;
+    public const int MAX_AGE = 12000; // Senescencia: ~3.3 minutos a 60fps
     
+    // Comunicación P2P
     public float RadioFrequency = 0f;
     public float CurrentBroadcastSignal = 0f;
+    public float CommRadius = 60f; // Radio de comunicación mutable/heredable
+    
+    // Sociología: Engaño y Reputación
+    public float DeceptionTrait = 0f; // 0=honesto, 1=mentiroso compulsivo. Heredable.
+    public Dictionary<int, float> TrustLedger = new Dictionary<int, float>();
     
     public MetabolicSynthesis Metabolism;
 
     public void Initialize(Vector2 startPosition)
     {
         Position = startPosition;
-        Metabolism = new MetabolicSynthesis(150f, 10f); // Más vida inicial
+        Metabolism = new MetabolicSynthesis(150f, 10f);
         
-        // Random velocity
         RandomNumberGenerator rng = new RandomNumberGenerator();
         rng.Randomize();
         Velocity = new Vector2(rng.RandfRange(-1, 1), rng.RandfRange(-1, 1)).Normalized() * rng.RandfRange(1, 3);
-        RadioFrequency = rng.RandfRange(0f, 1f); // Semilla de facción aleatoria
+        RadioFrequency = rng.RandfRange(0f, 1f);
+        DeceptionTrait = rng.RandfRange(0f, 0.15f); // Mayormente honestos al inicio
+        CommRadius = rng.RandfRange(40f, 80f);
     }
     
     public void ApplyForce(Vector2 force)
     {
         Acceleration += force;
-        // Sanitizar aceleración
         if (float.IsNaN(Acceleration.X) || float.IsNaN(Acceleration.Y)) {
             Acceleration = Vector2.Zero;
         }
+    }
+    
+    public float GetTrust(int otherId) {
+        if (TrustLedger.ContainsKey(otherId)) return TrustLedger[otherId];
+        return 0.5f; // Confianza neutra por defecto
+    }
+    
+    public void UpdateTrust(int otherId, float delta) {
+        float current = GetTrust(otherId);
+        TrustLedger[otherId] = Mathf.Clamp(current + delta, 0f, 1f);
     }
     
     public void AgentUpdate(Vector2 bounds, float dt = 1.0f)
@@ -45,6 +63,11 @@ public partial class Nanot : Node2D
         if (IsDead) return;
         
         Age++;
+        
+        // Costo energético de comunicación (Feature 1)
+        if (Mathf.Abs(CurrentBroadcastSignal) > 0.5f) {
+            Metabolism.Biomass -= 0.05f; // Hablar cuesta energía
+        }
         
         Velocity += Acceleration;
         Velocity = Velocity.LimitLength(MaxSpeed);
@@ -54,10 +77,15 @@ public partial class Nanot : Node2D
         CheckEdges(bounds);
         Rotation = Velocity.Angle() + (Mathf.Pi / 2.0f);
         
-        // Lógica Bioma/Mitosis
-        if (Metabolism.Biomass >= Metabolism.MaxBiomass * 0.9f && Age > 100) {
+        // Senescencia (Feature 4): Muerte por vejez
+        if (Age > MAX_AGE) {
+            Die();
+            return;
+        }
+        
+        // Lógica de fertilidad (requiere 2 padres, se chequea en Main.cs)
+        if (Metabolism.CanReproduce() && Age > 200) {
             CanReproduce = true;
-            Metabolism.ConsumeForReproduction();
         }
 
         if (Metabolism.Biomass <= 0) {
@@ -77,6 +105,6 @@ public partial class Nanot : Node2D
     
     public void Die() {
         IsDead = true;
-        QueueFree(); // Desvincular limpieza de memoria automática de Godot
+        QueueFree();
     }
 }

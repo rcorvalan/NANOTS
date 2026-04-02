@@ -215,6 +215,30 @@ public partial class Main : Node2D
         };
         slideBox.AddChild(btnPred);
         
+        // Feature 8: Botón Catástrofe
+        Button btnCatastrophe = new Button();
+        btnCatastrophe.Text = "☄ Catástrofe (Extinción 50%)";
+        btnCatastrophe.CustomMinimumSize = new Vector2(200, 30);
+        btnCatastrophe.AddThemeColorOverride("font_color", new Color(1f, 0.6f, 0.1f, 1));
+        btnCatastrophe.Pressed += () => {
+            int killCount = Pop.Count / 2;
+            for(int k = 0; k < killCount && Pop.Count > 0; k++) {
+                int idx = (int)(GD.Randi() % Pop.Count);
+                Pop[idx].Die();
+                Pop.RemoveAt(idx);
+            }
+        };
+        slideBox.AddChild(btnCatastrophe);
+        
+        // Feature 9: Botón exportar CSV
+        Button btnCSV = new Button();
+        btnCSV.Text = "📊 Exportar Métricas CSV";
+        btnCSV.CustomMinimumSize = new Vector2(200, 30);
+        btnCSV.Pressed += () => {
+            ExportMetricsCSV();
+        };
+        slideBox.AddChild(btnCSV);
+        
         slideBox.AddChild(new HSeparator());
         
         // EXIT Button
@@ -368,13 +392,24 @@ public partial class Main : Node2D
                 if (n.Metabolism.Biomass < 15f) {
                     DrawString(defaultFont, n.Position + new Vector2(-4, -15), "!", HorizontalAlignment.Center, -1, 14, Colors.Red);
                 } 
+                else if (n.DeceptionTrait > 0.5f && Mathf.Abs(n.CurrentBroadcastSignal) > 0.5f) {
+                    DrawString(defaultFont, n.Position + new Vector2(-6, -15), "🎭", HorizontalAlignment.Center, -1, 14, Colors.Yellow);
+                }
                 else if (Mathf.Abs(n.CurrentBroadcastSignal) > 0.8f) {
                     DrawString(defaultFont, n.Position + new Vector2(-6, -15), "♫", HorizontalAlignment.Center, -1, 16, Colors.Cyan);
                 }
+                else if (n.CanReproduce) {
+                    DrawString(defaultFont, n.Position + new Vector2(-6, -15), "♥", HorizontalAlignment.Center, -1, 14, Colors.HotPink);
+                }
                 
-                // Si está seleccionando objetivo depredador
+                // Feature 11: Vectores de decisión para agente seleccionado
                 if (SelectedAgent != null && !SelectedAgent.IsDead && SelectedAgent == n) {
-                    DrawString(defaultFont, n.Position + new Vector2(-20, -35), $"HUE: {(int)(n.RadioFrequency * 360)}", HorizontalAlignment.Left, -1, 14, Colors.White);
+                    // Flecha de velocidad (dirección actual)
+                    DrawLine(n.Position, n.Position + n.Velocity.Normalized() * 30f, Colors.Green, 2f);
+                    // Info del agente
+                    DrawString(defaultFont, n.Position + new Vector2(-30, -35), 
+                        $"HUE:{(int)(n.RadioFrequency*360)} Dec:{(int)(n.DeceptionTrait*100)}%", 
+                        HorizontalAlignment.Left, -1, 12, Colors.White);
                 }
             }
         }
@@ -389,6 +424,38 @@ public partial class Main : Node2D
         Pop.Add(n);
         AddChild(n);
     }
+    
+    // Feature 9: Exportar métricas a CSV
+    private void ExportMetricsCSV() {
+        string path = "user://nanot_metrics.csv";
+        bool exists = FileAccess.FileExists(path);
+        var file = FileAccess.Open(path, FileAccess.ModeFlags.ReadWrite);
+        if (file == null) { file = FileAccess.Open(path, FileAccess.ModeFlags.Write); }
+        file.SeekEnd();
+        
+        if (!exists || file.GetLength() == 0) {
+            file.StoreLine("timestamp,population,avg_biomass,comm_ratio,avg_deception,factions_estimate");
+        }
+        
+        int alive = 0; float totalBio = 0; int broadcasting = 0; float totalDeception = 0;
+        System.Collections.Generic.HashSet<int> factions = new System.Collections.Generic.HashSet<int>();
+        foreach(var n in Pop) {
+            if (n.IsDead) continue;
+            alive++;
+            totalBio += n.Metabolism.Biomass;
+            if (Mathf.Abs(n.CurrentBroadcastSignal) > 0.5f) broadcasting++;
+            totalDeception += n.DeceptionTrait;
+            factions.Add((int)(n.RadioFrequency * 10)); // 10 bandas de frecuencia
+        }
+        float avgBio = alive > 0 ? totalBio / alive : 0;
+        float commR = alive > 0 ? (float)broadcasting / alive : 0;
+        float avgDec = alive > 0 ? totalDeception / alive : 0;
+        
+        ulong ts = Godot.Time.GetTicksMsec() / 1000;
+        file.StoreLine($"{ts},{alive},{avgBio:F1},{commR:F2},{avgDec:F3},{factions.Count}");
+        file.Close();
+        GD.Print($"Métricas exportadas a {path}");
+    }
 
     public override void _Process(double delta)
     {
@@ -402,8 +469,9 @@ public partial class Main : Node2D
         for(int i = Pop.Count - 1; i >= 0; i--) {
             var n = Pop[i];
             if (n == null || !GodotObject.IsInstanceValid(n) || n.IsDead) {
-                if (n != null && GodotObject.IsInstanceValid(n) && n.Velocity.LengthSquared() > 0) {
-                    FoodMgr.DropFood(n.Position, 50f); // Residual biomass
+                if (n != null && GodotObject.IsInstanceValid(n)) {
+                    // Feature 2: Reciclaje orgánico proporcional (30%)
+                    FoodMgr.DropFood(n.Position, n.Metabolism.MaxBiomass * 0.3f);
                 }
                 Pop.RemoveAt(i);
             }
@@ -536,26 +604,79 @@ public partial class Main : Node2D
                 }
             }
             
-            // --- FUERZA SOCIAL: Atracción a pares de misma frecuencia ---
+            // --- BOIDS COMPLETO: Cohesión + Separación + Alineación ---
             List<Nanot> socialNeighbors = new List<Nanot>();
-            qt.Query(new Rect2(agent.Position.X - 80, agent.Position.Y - 80, 160, 160), socialNeighbors);
+            float qr = agent.CommRadius;
+            qt.Query(new Rect2(agent.Position.X - qr, agent.Position.Y - qr, qr*2, qr*2), socialNeighbors);
+            
             Vector2 cohesion = Vector2.Zero;
+            Vector2 separation = Vector2.Zero; // Feature 5
+            Vector2 alignment = Vector2.Zero;  // Feature 10
             int kindred = 0;
+            
             foreach(var sn in socialNeighbors) {
                 if (sn == agent || sn.IsDead) continue;
-                if (Mathf.Abs(sn.RadioFrequency - agent.RadioFrequency) < 0.1f) {
+                float dist = agent.Position.DistanceTo(sn.Position);
+                bool sameSpecies = Mathf.Abs(sn.RadioFrequency - agent.RadioFrequency) < 0.1f;
+                
+                // Feature 5: Separación (todos los vecinos, no solo misma especie)
+                if (dist < 18f && dist > 0.001f) {
+                    separation += (agent.Position - sn.Position).Normalized() / dist;
+                }
+                
+                if (sameSpecies) {
                     cohesion += (sn.Position - agent.Position);
+                    alignment += sn.Velocity; // Feature 10
                     kindred++;
+                    
+                    // Feature 6: Actualización de confianza
+                    if (agent.GetTrust(sn.PoolIndex) > 0.2f && Mathf.Abs(sn.CurrentBroadcastSignal) > 0.5f) {
+                        // Si el vecino grita "comida" pero no hay comida cerca de él, reducir confianza
+                        bool foodNearSpeaker = false;
+                        foreach(var f in FoodMgr.Pellets) {
+                            if (!f.IsRotten && sn.Position.DistanceSquaredTo(f.Position) < 2500f) {
+                                foodNearSpeaker = true; break;
+                            }
+                        }
+                        if (!foodNearSpeaker && sn.CurrentBroadcastSignal > 0.5f) {
+                            agent.UpdateTrust(sn.PoolIndex, -0.02f); // Pierde reputación
+                        } else if (foodNearSpeaker) {
+                            agent.UpdateTrust(sn.PoolIndex, 0.01f); // Gana reputación
+                        }
+                    }
                 }
             }
             if (kindred > 0) {
                 cohesion /= kindred;
-                agent.ApplyForce(cohesion.Normalized() * 0.01f); // Fuerza suave hacia el grupo
+                alignment /= kindred;
+                agent.ApplyForce(cohesion.Normalized() * 0.008f); // Cohesión
+                agent.ApplyForce(alignment.Normalized() * 0.005f); // Alineación
+            }
+            agent.ApplyForce(separation * 0.03f); // Separación (más fuerte)
+            
+            // Feature 7: Engaño - El agente puede mentir sobre recursos
+            if (agent.CurrentBroadcastSignal > 0.5f && GD.Randf() < agent.DeceptionTrait) {
+                agent.CurrentBroadcastSignal *= -1; // Invierte la señal (engaño)
             }
             
-            // Reglas de Mitosis Biológica
+            // Feature 3: Reproducción SEXUAL (2 padres + crossover)
             if (agent.CanReproduce && (Pop.Count + babies.Count < POP_LIMIT)) {
                 agent.CanReproduce = false;
+                
+                // Buscar pareja compatible cercana (misma especie, también fértil)
+                Nanot mate = null;
+                foreach(var sn in socialNeighbors) {
+                    if (sn == agent || sn.IsDead || !sn.CanReproduce) continue;
+                    if (Mathf.Abs(sn.RadioFrequency - agent.RadioFrequency) < 0.1f) {
+                        mate = sn; break;
+                    }
+                }
+                
+                int parentB = mate != null ? Pop.IndexOf(mate) : i; // Si no hay pareja, mitosis asexual
+                if (mate != null) mate.CanReproduce = false;
+                
+                // Pagar costo reproductivo
+                agent.Metabolism.ConsumeForReproduction();
                 
                 Nanot baby = new Nanot();
                 Vector2 spawnPos = agent.Position + new Vector2((float)GD.RandRange(-10, 10), (float)GD.RandRange(-10, 10));
@@ -563,14 +684,29 @@ public partial class Main : Node2D
                 baby.Rotation = (float)GD.RandRange(0, Mathf.Tau);
                 
                 int childIndex = Pop.Count + babies.Count;
-                NEAT.Inherit(childIndex, i);
+                if (parentB >= 0 && parentB != i) {
+                    NEAT.Crossover(childIndex, i, parentB); // Crossover sexual real
+                } else {
+                    NEAT.Inherit(childIndex, i); // Mitosis fallback
+                }
                 NEAT.Mutate(childIndex, MutationRate);
                 
-                // Heredar frecuencia (idioma) del padre con pequeña variación
+                // Heredar rasgos del padre (con variación)
                 baby.RadioFrequency = agent.RadioFrequency + (float)GD.RandRange(-0.03, 0.03);
                 if (baby.RadioFrequency < 0) baby.RadioFrequency += 1f;
                 if (baby.RadioFrequency > 1f) baby.RadioFrequency -= 1f;
                 baby.PoolIndex = childIndex;
+                
+                // Heredar rasgos sociales
+                float mateDeception = mate != null ? mate.DeceptionTrait : agent.DeceptionTrait;
+                baby.DeceptionTrait = Mathf.Clamp(
+                    (agent.DeceptionTrait + mateDeception) / 2f + (float)GD.RandRange(-0.05, 0.05),
+                    0f, 1f
+                );
+                baby.CommRadius = Mathf.Clamp(
+                    agent.CommRadius + (float)GD.RandRange(-5, 5),
+                    20f, 120f
+                );
                 
                 babies.Add(baby);
             }

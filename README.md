@@ -1,4 +1,4 @@
-# 🧬 NANOT Evolution Sandbox · v8.2
+# 🧬 NANOT Evolution Sandbox · v9.0 — Sociedad Trascendental
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 [![Godot Engine](https://img.shields.io/badge/Godot-4.x-478CBF?logo=godot-engine&logoColor=white)](https://godotengine.org/)
@@ -20,23 +20,27 @@
 
 ---
 
-## ✨ Características Principales — v8.2
+## ✨ Características Principales — v9.0
 
 ### 🤖 Agente NANOT (Clase `Nanot.cs`)
 Cada entidad hereda de `Node2D` de Godot e integra:
 - **Cinemática física** con velocidad, aceleración e inercia.
 - **Metaclase metabólica** (`MetabolicSynthesis`) con recursos diferenciados (*Biomass* y *Mineral*).
-- **Kill-switch automático** via `QueueFree()` de Godot al morir, sin fugas de memoria.
-- Rotación direccional dinámica basada en el vector de velocidad.
+- **Senescencia**: Los agentes mueren de vejez después de `12.000 ticks` (~3.3 min), forzando rotación generacional.
+- **Boids Completo**: Separación + Cohesión + Alineación entre pares de la misma especie.
+- **DeceptionTrait**: Gen heredable que determina la probabilidad de mentir al transmitir señales P2P.
+- **TrustLedger**: Diccionario de reputación per-agente. Los mentirosos pierden credibilidad y son ignorados.
+- **CommRadius**: Radio de comunicación heredable y mutable (20-120px).
 
 ### 🧪 Metabolismo Multi-Recurso (`MetabolicSynthesis.cs`)
-El metabolismo **v6.0** abandona la simple barra de energía e implementa una biología sintética de dos vectores:
+El metabolismo **v9.0** implementa una biología sintética completa:
 
 | Recurso | Función |
 |---------|---------|
-| **Biomasa** | Combustible vital. Decae con el tiempo (+modificador ambiental de calor). Llegar a 0 = muerte. |
-| **Mineral** | Recurso secundario necesario para reproducción (`>30f`) y para financiar señalización (*stigmergy*). |
-| **Reproducción sexual** | Solo posible si `Biomass > 100f && Mineral > 30f`. Cuesta `60f` de Biomasa y `30f` de Mineral. |
+| **Biomasa** | Combustible vital. Decae con el tiempo (+modificador ambiental de calor). Hablar por P2P cuesta energía. Llegar a 0 = muerte. |
+| **Mineral** | Se gana en zonas radiactivas. Necesario para reproducción (`>30f`) y construcción estigmérgica. |
+| **Reproducción sexual** | Requiere 2 padres compatibles (misma especie). Crossover genético real entre redes neuronales. |
+| **Reciclaje Orgánico** | Al morir, un Nanot deja el 30% de su biomasa máxima como alimento para otros. |
 
 ### 🧬 Neuroevolución en GPU (`NeuroEvolutionNetwork.cs` + `BrainCompute.glsl`)
 
@@ -152,13 +156,19 @@ El diseño garantiza un entorno computacionalmente seguro y estable:
 
 ## 🗺️ Hoja de Ruta
 
-- [ ] Sistema de reputación (Trust Ledger) y engaño estratégico (Fake Broadcast)
+- [x] Sistema de reputación (Trust Ledger) y engaño estratégico (DeceptionTrait heredable)
 - [x] Construcción de Grid Estigmérgico para Autómata Celular ("Redstone Orgánico")
 - [x] Especiación por divergencia de frecuencia de radio (facciones visuales cromáticas)
-- [ ] Panel de inspección individual del agente (Social Graph + Heatmap Mental + Árbol Genético)
-- [ ] Exportación de métricas a CSV (población, facciones activas, tasa de simbiosis/parasitismo)
-- [ ] Implementación completa de `PARASITE` en `CellularLink`
-- [ ] Escenarios predefinidos: Laberinto de Teseo, Evento de Extinción, Catástrofe ambiental
+- [x] Panel de inspección individual (Microscopio Neural) con vectores de decisión
+- [x] Exportación de métricas a CSV (población, facciones, engaño, biomasa)
+- [x] Botón Catástrofe (Extinción del 50% aleatoria)
+- [x] Reproducción sexual (2 padres + crossover genético real)
+- [x] Senescencia (muerte por vejez, rotación generacional)
+- [x] Boids completo (Separación + Cohesión + Alineación)
+- [x] Costo energético de comunicación P2P
+- [x] Cámara libre con Zoom + arrastre
+- [ ] Escenarios predefinidos: Laberinto de Teseo
+- [ ] Federación Cross-Universe (migración inter-IP)
 
 ---
 
