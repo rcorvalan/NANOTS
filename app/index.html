@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>NANOT Sandbox v6.0 - Sentience</title>
+  </head>
+  <body>
+    <canvas id="sandboxCanvas"></canvas>
+    <div id="godPanel">
+      <h2>NANOT Sandbox v6.0 (Compute)</h2>
+      <div class="control-group">
+        <label>Población Inicial: <span id="initialPopVal">50</span></label>
+        <input type="range" id="initialPop" min="2" max="500" value="50">
+      </div>
+      <div class="control-group">
+        <label>Tasa Decaimiento <br>(Energía): <span id="decayVal">0.1</span></label>
+        <input type="range" id="energyDecay" min="0.01" max="0.5" step="0.01" value="0.1">
+      </div>
+      <div class="control-group">
+        <label>Fuerza Separación: <span id="sepVal">1.5</span></label>
+        <input type="range" id="separationWeight" min="0" max="3" step="0.1" value="1.5">
+      </div>
+      <hr>
+      <div class="legend">
+        <label>Estado Energético:</label>
+        <div class="gradient-bar"></div>
+        <div class="legend-labels"><span>Crítico (Rojo)</span><span>Sano (Verde)</span></div>
+      </div>
+      <hr>
+      <div class="stats-grid">
+        <div class="stat-box">Pop: <span id="popCount">0</span>/1000</div>
+        <div class="stat-box">FPS: <span id="fpsCount">0</span></div>
+        <div class="stat-box">Alimento: <span id="resourceCount">0</span></div>
+        <div class="stat-box">Salud (Prom.): <span id="avgHealth">0</span>%</div>
+        <div class="stat-box" style="grid-column: span 2;">Predadores: <span id="predCount">0</span></div>
+      </div>
+      <div class="btn-group">
+        <button id="toggleAdvancedBtn" class="primary">Settings v5.0 (Toggles)</button>
+        <button id="exportCsvBtn" class="primary">Exportar Telemetría (CSV)</button>
+        <button id="resetBtn">Reiniciar Mundo</button>
+        <button id="killSwitchBtn" class="danger">Kill Switch (Stop)</button>
+      </div>
+    </div>
+
+    <!-- Panel Avanzado (Feature Toggles) -->
+    <div id="advancedPanel" class="window-panel hidden">
+      <h3>Módulos de Simulación</h3>
+      <label class="toggle-row"><input type="checkbox" id="tgRecycle" checked> Reciclaje Orgánico (Drops)</label>
+      <label class="toggle-row"><input type="checkbox" id="tgLearning" checked> Aprendizaje Hebbiano</label>
+      <label class="toggle-row"><input type="checkbox" id="tgGameTheory" checked> Engaño y Reputación P2P</label>
+      <label class="toggle-row"><input type="checkbox" id="tgSpeciation" checked> Especiación Autónoma</label>
+      <label class="toggle-row"><input type="checkbox" id="tgPredators" checked> Depredación Dinámica</label>
+      <button id="closeAdvancedBtn" style="margin-top:10px;">Ocultar</button>
+    </div>
+
+    <!-- Panel Analitico (Deep Inspection) -->
+    <div id="inspectionPanel" class="window-panel hidden" style="left:20px; top:20px;">
+      <h3>Deep Inspection: NANOT</h3>
+      <div class="insp-stat"><strong>ID:</strong> <span id="inspId">-</span></div>
+      <div class="insp-stat"><strong>Edad:</strong> <span id="inspAge">-</span></div>
+      <div class="insp-stat"><strong>Frecuencia de Radio:</strong> <span id="inspFreq">-</span></div>
+      <div class="insp-stat"><strong>Prob. de Mentir:</strong> <span id="inspDeception">-</span>%</div>
+      <hr style="margin:5px 0;">
+      <h4 style="margin:5px 0;">Red Distribuida (Libro de Confianza)</h4>
+      <div class="insp-stat">Compañeros de Red: <span id="inspNetwork">-</span></div>
+      <div class="insp-stat" style="color: #10b981;">Nodos Confiables: <span id="inspTrust">-</span></div>
+      <div class="insp-stat" style="color: #ef4444;">Nodos Ignorados (Bloqueados): <span id="inspBlocked">-</span></div>
+      <button id="closeInspBtn" style="margin-top:10px;">Cerrar Inspector</button>
+    </div>
+
+    <div id="debugLog" class="terminal-log">
+      <div class="log-title">System Log</div>
+      <div id="logContent"></div>
+    </div>
+    <div id="killMsg" class="overlay-msg" style="display: none;">Simulación Detenida</div>
+    
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>

@@ -1,0 +1,17 @@
+C:\Users\rcorv\OneDrive - Adecua SpA\Escritorio\Nanots\GodotEngine\.godot\mono\temp\bin\Debug\Nanot Sandbox.deps.json
+C:\Users\rcorv\OneDrive - Adecua SpA\Escritorio\Nanots\GodotEngine\.godot\mono\temp\bin\Debug\Nanot Sandbox.runtimeconfig.json
+C:\Users\rcorv\OneDrive - Adecua SpA\Escritorio\Nanots\GodotEngine\.godot\mono\temp\bin\Debug\Nanot Sandbox.dll
+C:\Users\rcorv\OneDrive - Adecua SpA\Escritorio\Nanots\GodotEngine\.godot\mono\temp\bin\Debug\Nanot Sandbox.pdb
+C:\Users\rcorv\OneDrive - Adecua SpA\Escritorio\Nanots\GodotEngine\.godot\mono\temp\bin\Debug\GodotSharp.dll
+C:\Users\rcorv\OneDrive - Adecua SpA\Escritorio\Nanots\GodotEngine\.godot\mono\temp\bin\Debug\GodotSharpEditor.dll
+C:\Users\rcorv\OneDrive - Adecua SpA\Escritorio\Nanots\GodotEngine\.godot\mono\temp\obj\Debug\Nanot Sandbox.csproj.AssemblyReference.cache
+C:\Users\rcorv\OneDrive - Adecua SpA\Escritorio\Nanots\GodotEngine\.godot\mono\temp\obj\Debug\Nanot Sandbox.GeneratedMSBuildEditorConfig.editorconfig
+C:\Users\rcorv\OneDrive - Adecua SpA\Escritorio\Nanots\GodotEngine\.godot\mono\temp\obj\Debug\Nanot Sandbox.AssemblyInfoInputs.cache
+C:\Users\rcorv\OneDrive - Adecua SpA\Escritorio\Nanots\GodotEngine\.godot\mono\temp\obj\Debug\Nanot Sandbox.AssemblyInfo.cs
+C:\Users\rcorv\OneDrive - Adecua SpA\Escritorio\Nanots\GodotEngine\.godot\mono\temp\obj\Debug\Nanot Sandbox.csproj.CoreCompileInputs.cache
+C:\Users\rcorv\OneDrive - Adecua SpA\Escritorio\Nanots\GodotEngine\.godot\mono\temp\obj\Debug\Nanot Sa.C0FCCB4E.Up2Date
+C:\Users\rcorv\OneDrive - Adecua SpA\Escritorio\Nanots\GodotEngine\.godot\mono\temp\obj\Debug\Nanot Sandbox.dll
+C:\Users\rcorv\OneDrive - Adecua SpA\Escritorio\Nanots\GodotEngine\.godot\mono\temp\obj\Debug\refint\Nanot Sandbox.dll
+C:\Users\rcorv\OneDrive - Adecua SpA\Escritorio\Nanots\GodotEngine\.godot\mono\temp\obj\Debug\Nanot Sandbox.pdb
+C:\Users\rcorv\OneDrive - Adecua SpA\Escritorio\Nanots\GodotEngine\.godot\mono\temp\obj\Debug\Nanot Sandbox.genruntimeconfig.cache
+C:\Users\rcorv\OneDrive - Adecua SpA\Escritorio\Nanots\GodotEngine\.godot\mono\temp\obj\Debug\ref\Nanot Sandbox.dll

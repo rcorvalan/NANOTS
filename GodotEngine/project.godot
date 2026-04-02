@@ -1,0 +1,15 @@
+; Engine configuration file.
+; Format:
+;   [section] ; section goes between []
+;   param=value ; assign values to parameters
+
+config_version=5
+
+[application]
+
+config/name="Nanot Sandbox v6"
+run/main_scene="res://Main.tscn"
+config/features=PackedStringArray("4.3", "C#", "Forward Plus")
+
+[dotnet]
+project/assembly_name="Nanot Sandbox"
