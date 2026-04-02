@@ -1,0 +1,19 @@
+# Godot
+.godot/
+.import/
+*.import
+
+# IDE
+.vs/
+.vscode/
+*.user
+
+# OS
+Thumbs.db
+.DS_Store
+
+# Documentación interna (no subir a Git)
+Documento Maestro_ NANOT Evolution Sandbox.md
+Estructura de Prompt_ NANOT Evolution Sandbox.md
+Manual Técnico_ NANOT Sandbox.md
+Prompt_Arquitectura_ NANOT Sandbox v5.0.md
