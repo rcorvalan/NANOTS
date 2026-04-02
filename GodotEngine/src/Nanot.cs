@@ -14,6 +14,9 @@ public partial class Nanot : Node2D
     public bool CanReproduce = false;
     public int Age = 0;
     
+    public float RadioFrequency = 0f;
+    public float CurrentBroadcastSignal = 0f;
+    
     public MetabolicSynthesis Metabolism;
 
     public void Initialize(Vector2 startPosition)
@@ -25,6 +28,7 @@ public partial class Nanot : Node2D
         RandomNumberGenerator rng = new RandomNumberGenerator();
         rng.Randomize();
         Velocity = new Vector2(rng.RandfRange(-1, 1), rng.RandfRange(-1, 1)).Normalized() * rng.RandfRange(1, 3);
+        RadioFrequency = rng.RandfRange(0f, 1f); // Semilla de facción aleatoria
     }
     
     public void ApplyForce(Vector2 force)

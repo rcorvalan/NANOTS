@@ -1,4 +1,4 @@
-# 🧬 NANOT Evolution Sandbox · v6.0
+# 🧬 NANOT Evolution Sandbox · v8.2
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 [![Godot Engine](https://img.shields.io/badge/Godot-4.x-478CBF?logo=godot-engine&logoColor=white)](https://godotengine.org/)
@@ -20,7 +20,7 @@
 
 ---
 
-## ✨ Características Principales — v6.0
+## ✨ Características Principales — v8.2
 
 ### 🤖 Agente NANOT (Clase `Nanot.cs`)
 Cada entidad hereda de `Node2D` de Godot e integra:
@@ -41,7 +41,7 @@ El metabolismo **v6.0** abandona la simple barra de energía e implementa una bi
 ### 🧬 Neuroevolución en GPU (`NeuroEvolutionNetwork.cs` + `BrainCompute.glsl`)
 
 La toma de decisiones de cada agente está impulsada por una **red neuronal feedforward** con:
-- **15 entradas** · **8 nodos ocultos** · **5 salidas**.
+- **16 entradas** · **8 nodos ocultos** · **7 salidas**.
 - **Inicialización Xavier/He** aleatoria para diversidad poblacional inicial.
 - **Mutación estocástica** por gen con clamp de pesos en `[-5f, 5f]`.
 - **Crossover genético** (recombinación uniforme): los hijos heredan genes aleatoriamente de padre A o padre B.
@@ -64,6 +64,12 @@ Los NANOTs pueden establecer **vínculos biológicos** persistentes con otros in
 | `SYMBIOSIS` | Equilibra Biomasa y Mineral entre ambos agentes. Aplica una leve fuerza de atracción mutua. |
 | `PARASITE` | (Implementación pendiente) Un agente drena recursos del otro. |
 | `COMMUNICATION` | Canal de señalización directa entre dos nodos de la red mesh. |
+
+### 🔗 Sociedad Trascendental (Redstone & P2P)
+**V8.2 introduce las mecánicas fundacionales de las macro-sociedades artificiales:**
+- **Mesh Lingüística (P2P):** Los agentes transcriben `RadioFrequencies` dinámicas que actúan como idiomas. Los nodos interceptan las señales (`CurrentBroadcastSignal`) de sus pares circundantes, validando inputs sólo si la diferencia tonal es < 10% (Tolerancia de especie).
+- **Estigmergia Computacional:** Los Nanots pueden excretar polímeros estáticos sobre el grid del mapa creando circuitos artificiales (`StigmergicGrid.cs`).
+- **Energización Natural (Redstone):** Los bloques estigmérgicos operan como Autómatas Celulares. Si un líder Nanot vocaliza con fuerza sobre un cable inerte, lo *"energiza"*, permitiendo transportar chispa azulada de un rincón del mapa al otro de forma ultrarrápida para computar lógica física o defenderse de depredadores.
 
 ### 🗺️ Entorno Topográfico Activo (`TopographyGrid.cs`)
 El mundo no es un lienzo inerte. Un **grid topográfico procedural** genera:
@@ -147,7 +153,8 @@ El diseño garantiza un entorno computacionalmente seguro y estable:
 ## 🗺️ Hoja de Ruta
 
 - [ ] Sistema de reputación (Trust Ledger) y engaño estratégico (Fake Broadcast)
-- [ ] Especiación por divergencia de frecuencia de radio (facciones visuales cromáticas)
+- [x] Construcción de Grid Estigmérgico para Autómata Celular ("Redstone Orgánico")
+- [x] Especiación por divergencia de frecuencia de radio (facciones visuales cromáticas)
 - [ ] Panel de inspección individual del agente (Social Graph + Heatmap Mental + Árbol Genético)
 - [ ] Exportación de métricas a CSV (población, facciones activas, tasa de simbiosis/parasitismo)
 - [ ] Implementación completa de `PARASITE` en `CellularLink`

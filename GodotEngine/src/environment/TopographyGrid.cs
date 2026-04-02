@@ -68,11 +68,11 @@ public partial class TopographyGrid : Node2D
                 float alpha = Mathf.Abs(heat) * 0.15f;
 
                 if (rad > 0.2f) {
-                    r = 0f; b = 0f;
+                    r = rad; b = rad; // Mutágeno Purpura/Magenta
                     alpha = rad * 0.3f;
                 }
                 
-                Color c = new Color(r, (rad > 0.2f) ? 1.0f : 0f, b, alpha);
+                Color c = new Color(r, 0f, b, alpha); // Se quitó el canal verde para la UI
                 RenderImage.SetPixel(x, y, c);
             }
         }

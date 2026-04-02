@@ -1,0 +1,11 @@
+  Determinando los proyectos que se van a restaurar...
+  Todos los proyectos están actualizados para la restauración.
+C:\Users\rcorv\OneDrive - Adecua SpA\Escritorio\Nanots\GodotEngine\src\Main.cs(438,28): error CS0266: No se puede convertir implícitamente el tipo 'ulong' en 'long'. Ya existe una conversión explícita (compruebe si le falta una conversión) [C:\Users\rcorv\OneDrive - Adecua SpA\Escritorio\Nanots\GodotEngine\Nanot Sandbox.csproj]
+
+ERROR al compilar.
+
+C:\Users\rcorv\OneDrive - Adecua SpA\Escritorio\Nanots\GodotEngine\src\Main.cs(438,28): error CS0266: No se puede convertir implícitamente el tipo 'ulong' en 'long'. Ya existe una conversión explícita (compruebe si le falta una conversión) [C:\Users\rcorv\OneDrive - Adecua SpA\Escritorio\Nanots\GodotEngine\Nanot Sandbox.csproj]
+    0 Advertencia(s)
+    1 Errores
+
+Tiempo transcurrido 00:00:00.93
