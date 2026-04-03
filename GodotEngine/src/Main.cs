@@ -13,6 +13,7 @@ public partial class Main : Node2D
     private FoodManager FoodMgr;
     private StigmergicGrid StigGrid;
     private List<Predator> Predators = new List<Predator>();
+    private List<CellularLink> Links = new List<CellularLink>();
     
     // IA NeuroEvolutiva
     private BrainComputeProvider BCP;
@@ -610,6 +611,7 @@ public partial class Main : Node2D
         LblInspDeception = new Label();
         LblInspNeighbors = new Label();
         LblInspReward = new Label();
+        Label LblInspLink = new Label(); LblInspLink.Name = "LblInspLink";
         inspBox.AddChild(LblInspState);
         inspBox.AddChild(LblInspEnergy);
         inspBox.AddChild(LblInspAge);
@@ -618,6 +620,7 @@ public partial class Main : Node2D
         inspBox.AddChild(LblInspDeception);
         inspBox.AddChild(LblInspNeighbors);
         inspBox.AddChild(LblInspReward);
+        inspBox.AddChild(LblInspLink);
 
         inspBox.AddChild(new HSeparator());
         Label inspVecTitle = new Label(); inspVecTitle.Text = "VECTORES DE DECISIÓN:";
@@ -770,10 +773,17 @@ public partial class Main : Node2D
                 DrawArrowVector(n.Position, n.DbgNeuralOutput, vecScale * 0.9f, new Color(1, 1, 1, pulse), 3f);
             }
             
-            // Etiqueta resumen arriba del agente
             DrawString(defaultFont, n.Position + new Vector2(-50, -50), 
                 $"HUE:{(int)(n.RadioFrequency*360)}° | Dec:{(int)(n.DeceptionTrait*100)}% | Vecinos:{n.DbgNeighborCount}({n.DbgKindredCount})", 
                 HorizontalAlignment.Left, -1, 11, new Color(1, 1, 1, 0.9f));
+        }
+        
+        // Feature 9.6: Visualizar Enlaces de Simbiosis Activos
+        foreach(var link in Links) {
+            if (link.Type == "SYMBIOSIS") {
+                Color linkCol = new Color(0.2f, 1.0f, 1.0f, 0.4f);
+                DrawLine(link.A.Position, link.B.Position, link.Type == "SYMBIOSIS" ? linkCol : Colors.Red, 2.0f);
+            }
         }
         
         // Emotes de Cultura (Solo renderizar si estamos muy cerca con la camara)
@@ -928,19 +938,19 @@ public partial class Main : Node2D
         float cy = ScreenSize.Y / 2f;
         // Borde exterior
         for(float x = cx - 300; x <= cx + 300; x += 15) {
-            StigGrid.PlaceTile(new Vector2(x, cy - 300), 2.55f); // 2.55f * 100 = ~255
-            StigGrid.PlaceTile(new Vector2(x, cy + 300), 2.55f);
+            StigGrid.PlaceTile(new Vector2(x, cy - 300), 1.0f); // Clan 255 (Blanco/Neutro)
+            StigGrid.PlaceTile(new Vector2(x, cy + 300), 1.0f);
         }
         for(float y = cy - 300; y <= cy + 300; y += 15) {
-            StigGrid.PlaceTile(new Vector2(cx - 300, y), 2.55f);
-            StigGrid.PlaceTile(new Vector2(cx + 300, y), 2.55f);
+            StigGrid.PlaceTile(new Vector2(cx - 300, y), 1.0f);
+            StigGrid.PlaceTile(new Vector2(cx + 300, y), 1.0f);
         }
         // Paredes interiores
-        for(float y = cy - 200; y < cy + 200; y += 15) { StigGrid.PlaceTile(new Vector2(cx - 200, y), 2.55f); }
-        for(float x = cx - 200; x < cx + 100; x += 15) { StigGrid.PlaceTile(new Vector2(x, cy - 200), 2.55f); }
-        for(float y = cy - 200; y < cy; y += 15) { StigGrid.PlaceTile(new Vector2(cx + 100, y), 2.55f); }
-        for(float x = cx - 100; x < cx + 200; x += 15) { StigGrid.PlaceTile(new Vector2(x, cy), 2.55f); }
-        for(float y = cy; y < cy + 200; y += 15) { StigGrid.PlaceTile(new Vector2(cx - 100, y), 2.55f); }
+        for(float y = cy - 200; y < cy + 200; y += 15) { StigGrid.PlaceTile(new Vector2(cx - 200, y), 1.0f); }
+        for(float x = cx - 200; x < cx + 100; x += 15) { StigGrid.PlaceTile(new Vector2(x, cy - 200), 1.0f); }
+        for(float y = cy - 200; y < cy; y += 15) { StigGrid.PlaceTile(new Vector2(cx + 100, y), 1.0f); }
+        for(float x = cx - 100; x < cx + 200; x += 15) { StigGrid.PlaceTile(new Vector2(x, cy), 1.0f); }
+        for(float y = cy; y < cy + 200; y += 15) { StigGrid.PlaceTile(new Vector2(cx - 100, y), 1.0f); }
         // Salidas (Borramos algunos tiles)
         StigGrid.DestroyTile(new Vector2(cx - 300, cy));
         StigGrid.DestroyTile(new Vector2(cx + 300, cy));
@@ -1002,6 +1012,14 @@ public partial class Main : Node2D
             Pop.RemoveAt(0);
         }
         
+        // Actualizar Enlaces (Symbiosis/Parasitism)
+        for (int i = Links.Count - 1; i >= 0; i--) {
+            Links[i].Update();
+            if (Links[i].A.IsDead || Links[i].B.IsDead || Links[i].Type == "DEAD_LINK") {
+                Links.RemoveAt(i);
+            }
+        }
+        
         // 0. Construir QuadTree Espacial
         QuadTree qt = new QuadTree(new Rect2(0, 0, ScreenSize.X, ScreenSize.Y), 16);
         foreach(var agent in Pop) {
@@ -1030,7 +1048,8 @@ public partial class Main : Node2D
                 if (Mathf.Abs(nb.RadioFrequency - agent.RadioFrequency) < 0.1f) {
                     // Filtrar por confianza (Feature 6)
                     float trust = agent.GetTrust(nb.PoolIndex);
-                    if (trust < 0.2f) continue; // Ignorar mentirosos conocidos
+                    // Eje 3: Umbral de Silenciamiento Dinámico (Señales de auxilio ignoran el baneo)
+                    if (trust < 0.2f && nb.CurrentHelpSignal < 0.5f) continue; 
                     
                     localSignalSum += nb.CurrentBroadcastSignal;
                     validSignals++;
@@ -1129,6 +1148,13 @@ public partial class Main : Node2D
             
             agent.DbgSocialHelpDir = new Vector2(socialHelpDirX, socialHelpDirY);
             agent.DbgSocialDangerDir = new Vector2(socialDangerDirX, socialDangerDirY);
+            
+            // --- Eje 4.2 / Highway Comm Boost ---
+            byte tileState = StigGrid.CheckTile(agent.Position);
+            if (tileState > 0) {
+                float boost = (tileState == 2) ? 1.5f : 1.2f;
+                agent.CommRadius *= boost; // Boost de radio por estigmergia Conductiva
+            }
         }
 
         // 2. Compute Shaders (GPU Dispatcher nativo Godot)
@@ -1151,10 +1177,23 @@ public partial class Main : Node2D
             // Feature 11: Almacenar salida neuronal para debug visual
             agent.DbgNeuralOutput = new Vector2(outs[0], outs[1]);
             
-            // --- APRENDIZAJE HEBBIANO (intra-vida) ---
+            // --- APRENDIZAJE HEBBIANO (intra-vida / v9.6 Refuerzo Asimétrico) ---
             // Calcular recompensa: ¿ganó o perdió biomasa desde el frame anterior?
             float biomassDelta = agent.Metabolism.Biomass - agent.PreviousBiomass;
-            agent.RewardSignal = Mathf.Clamp(biomassDelta * 2f, -1f, 1f); // Amplificar señal
+            
+            // Highway Comm Boost: Costo cero si está energizado (usa energía de la red)
+            byte gridState = StigGrid.CheckTile(agent.Position);
+            bool freeBroadcast = gridState == 2;
+            
+            // Eje 2: Asimetría de Recompensa/Castigo
+            float finalReward = 0f;
+            if (biomassDelta > 0.001f) {
+                finalReward = Mathf.Clamp(biomassDelta * 5.0f, 0f, 5.0f); // Alta gratificación por comer
+            } else if (biomassDelta < -0.001f) {
+                finalReward = Mathf.Clamp(biomassDelta * 1.0f, -1.0f, 0f); // Castigo mitigado
+            }
+            
+            agent.RewardSignal = finalReward;
             agent.PreviousBiomass = agent.Metabolism.Biomass;
             
             // Extraer inputs actuales para Hebbian
@@ -1166,8 +1205,22 @@ public partial class Main : Node2D
             // Aplicar aprendizaje: refuerza conexiones que llevaron a comer, debilita las que llevaron a hambre
             NEAT.HebbianUpdate(agent.PoolIndex, agentInputs, agent.RewardSignal, 0.0005f);
             
-            // --- EMISIÓN DE SEÑALES SEMÁNTICAS ---
-            agent.CurrentBroadcastSignal = outs[4];
+            // Eje 3: Decadencia de Castigo (Recuperación de confianza)
+            agent.UpdateTrustLedger();
+            
+            // --- EMISIÓN DE SEÑALES SEMÁNTICAS (v9.6 Rate Limiting) ---
+            int currentTick = (int)(Godot.Time.GetTicksMsec() / 16);
+            if (currentTick > agent.lastBroadcastTick + Nanot.BROADCAST_COOLDOWN) {
+                agent.CurrentBroadcastSignal = outs[4];
+                agent.lastBroadcastTick = currentTick;
+                
+                // Si el mensaje es real y el costo es cero (energizado), no descontar biomasa en Nanot.cs
+                if (freeBroadcast && Mathf.Abs(agent.CurrentBroadcastSignal) > 0.5f) {
+                    agent.Metabolism.Biomass += Nanot.METABOLIC_RADIO_COST; // Reintegro instantáneo
+                }
+            } else {
+                agent.CurrentBroadcastSignal *= 0.8f; // Atenuación si hay cooldown
+            }
             
             // Si encontró comida cercana, emitir señal "COMIDA + dirección"
             bool hasNearbyFood = false;
@@ -1302,7 +1355,8 @@ public partial class Main : Node2D
                     kindred++;
                     
                     // Feature 6: Actualización de confianza
-                    if (agent.GetTrust(sn.PoolIndex) > 0.2f && Mathf.Abs(sn.CurrentBroadcastSignal) > 0.5f) {
+                    float trust = agent.GetTrust(sn.PoolIndex);
+                    if (trust > 0.2f && Mathf.Abs(sn.CurrentBroadcastSignal) > 0.5f) {
                         // Si el vecino grita "comida" pero no hay comida cerca de él, reducir confianza
                         bool foodNearSpeaker = false;
                         foreach(var f in FoodMgr.Pellets) {
@@ -1311,9 +1365,24 @@ public partial class Main : Node2D
                             }
                         }
                         if (!foodNearSpeaker && sn.CurrentBroadcastSignal > 0.5f) {
-                            agent.UpdateTrust(sn.PoolIndex, -0.02f); // Pierde reputación
+                            agent.UpdateTrust(sn.PoolIndex, -0.05f); // Penalización más fuerte
+                            
+                            // Eje 2: Validación Sensorial antes de penalización Hebbiana
+                            // Si el agente siguió un reporte falso y perdió energía buscando, penalizar neuronas
+                            if (agent.DbgFoodProximity < 0.1f && agent.RewardSignal < 0) {
+                                NEAT.HebbianUpdate(agent.PoolIndex, agentInputs, -2.0f, 0.001f); // Castigo por dejarse engañar
+                            }
                         } else if (foodNearSpeaker) {
-                            agent.UpdateTrust(sn.PoolIndex, 0.01f); // Gana reputación
+                            agent.UpdateTrust(sn.PoolIndex, 0.02f); // Gana reputación rápido
+                        }
+                        
+                        // Eje 4: Crear Vínculo Simbiótico (Solo misma especie y alta confianza)
+                        if (dist < 12f && trust > 0.8f && Links.Count < 500) {
+                             bool alreadyLinked = false;
+                             foreach(var l in Links) if((l.A == agent && l.B == sn) || (l.A == sn && l.B == agent)) { alreadyLinked = true; break; }
+                             if(!alreadyLinked) {
+                                 Links.Add(new CellularLink(agent, sn, "SYMBIOSIS"));
+                             }
                         }
                     }
                 }
@@ -1446,7 +1515,6 @@ public partial class Main : Node2D
         // Evaluador Cultural Intuitivo (Usa múltiples métricas)
         float avgBiomass = 0;
         int broadcastCount = 0;
-        int stigBlocks = 0;
         foreach(var n in Pop) {
             if (n.IsDead) continue;
             avgBiomass += n.Metabolism.Biomass;
@@ -1484,6 +1552,17 @@ public partial class Main : Node2D
                 LblInspNeighbors.Text = $"Vecinos: {ag.DbgNeighborCount} total | {ag.DbgKindredCount} especie";
                 LblInspReward.Text = $"Recompensa Hebbiana: {ag.RewardSignal:F3}";
                 LblInspReward.AddThemeColorOverride("font_color", ag.RewardSignal > 0 ? Colors.Green : Colors.Red);
+                
+                var lblLink = InspectorUI.FindChild("LblInspLink", true, false) as Label;
+                if (lblLink != null) {
+                    if (ag.ActiveLink != null) {
+                        lblLink.Text = $"Vínculo: {ag.ActiveLink.Type} (Age:{ag.ActiveLink.Age:F0})";
+                        lblLink.AddThemeColorOverride("font_color", ag.ActiveLink.Type == "SYMBIOSIS" ? Colors.Cyan : Colors.Red);
+                    } else {
+                        lblLink.Text = "Vínculo: Ninguno";
+                        lblLink.AddThemeColorOverride("font_color", Colors.Gray);
+                    }
+                }
                 
                 string st = "SUPERVIVENCIA";
                 if (Mathf.Abs(ag.CurrentBroadcastSignal) > 0.8f) st = "VOCALIZANDO (P2P)";

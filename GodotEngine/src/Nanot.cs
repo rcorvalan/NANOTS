@@ -20,6 +20,11 @@ public partial class Nanot : Node2D
     public float RadioFrequency = 0f;
     public float CurrentBroadcastSignal = 0f;
     public float CommRadius = 60f;
+    public int lastBroadcastTick = 0;
+    public const int BROADCAST_COOLDOWN = 5; // Ticks entre transmisiones
+    public const float METABOLIC_RADIO_COST = 0.01f; // Reducido al 20% (era 0.05)
+    public const float FORGIVENESS_RATE = 0.001f; // Recuperación de confianza por tick
+    public const float NEUTRAL_TRUST = 0.5f;
     
     // Señal semántica: (tipo, dirX, dirY) — permite comunicar ubicaciones
     // SignalType: 0=nada, >0.5=comida, <-0.5=peligro
@@ -50,6 +55,7 @@ public partial class Nanot : Node2D
     public int DbgKindredCount = 0;                    // Vecinos de misma especie
     
     public MetabolicSynthesis Metabolism;
+    public CellularLink ActiveLink = null; // Enlace biológico activo
 
     public void Initialize(Vector2 startPosition)
     {
@@ -82,16 +88,32 @@ public partial class Nanot : Node2D
         TrustLedger[otherId] = Mathf.Clamp(current + delta, 0f, 1f);
     }
     
+    public void UpdateTrustLedger() {
+        // El perdón social: las penalizaciones se desvanecen con el tiempo
+        var keys = new List<int>(TrustLedger.Keys);
+        foreach (var id in keys) {
+            if (TrustLedger[id] < NEUTRAL_TRUST) {
+                TrustLedger[id] = Mathf.Min(NEUTRAL_TRUST, TrustLedger[id] + FORGIVENESS_RATE);
+            } else if (TrustLedger[id] > NEUTRAL_TRUST) {
+                TrustLedger[id] = Mathf.Max(NEUTRAL_TRUST, TrustLedger[id] - FORGIVENESS_RATE);
+            }
+        }
+    }
+    
     public int AgentUpdate(Vector2 bounds, StigmergicGrid grid = null, float dt = 1.0f)
     {
         if (IsDead) return 0;
         
         Age++;
         
-        // Costo energético de comunicación (Feature 1)
-        if (Mathf.Abs(CurrentBroadcastSignal) > 0.5f) {
-            Metabolism.Biomass -= 0.05f; // Hablar cuesta energía
+        // Costo energético de comunicación (Feature 1 - Rebalanceado v9.6)
+        bool isBroadcasting = Mathf.Abs(CurrentBroadcastSignal) > 0.5f;
+        if (isBroadcasting) {
+            Metabolism.Biomass -= METABOLIC_RADIO_COST; 
         }
+        
+        // Detección de Estado de Reposo (Idle State)
+        bool isIdle = !isBroadcasting && Velocity.LengthSquared() < 0.01f;
         
         Velocity += Acceleration;
         Velocity = Velocity.LimitLength(MaxSpeed);
@@ -106,21 +128,21 @@ public partial class Nanot : Node2D
         if (grid != null) {
             byte tileClan = grid.GetTileClan(nextPos);
             if (tileClan != 0) {
-                byte myClan = (byte)Mathf.Clamp((RadioFrequency * 100f) + 1, 1, 255);
+                byte myClan = (byte)Mathf.Clamp((RadioFrequency * 254f) + 1, 1, 255);
                 int diff = Mathf.Abs((int)tileClan - (int)myClan);
-                if (diff > 50) diff = 100 - diff; // Corrección circular del Hue (0 y 100 son el mismo color/clan)
+                if (diff > 127) diff = 255 - diff; // Corrección circular del Hue (0 y 255 son el mismo color/clan)
                 
                 bool isAlly = diff <= 12; // 12% de tolerancia genética para pertenecer a la Tribu
                 
                 if (isAlly) {
                     // Camino del propio clan: Autopista rápida (boost de velocidad inercial)
-                    Velocity *= 1.05f; 
-                    Velocity = Velocity.LimitLength(MaxSpeed * 1.5f); // Permiso super-velocidad sobre carreteras
+                    Velocity *= 1.2f; // v9.6: Mas aceleracion en infraestructura aliada
+                    Velocity = Velocity.LimitLength(MaxSpeed * 2.0f); // Permiso super-velocidad sobre carreteras
                     nextPos = Position + Velocity * dt;
                 } else {
-                    // Infraestructura enemiga: Actúa como pantano/telaraña.
-                    // Ralentiza drásticamente el movimiento pero no bloquea el mapa permanentemente.
-                    Velocity = Velocity * 0.25f; // Pierde 75% de inercia al cruzar territorio hostil
+                    // Infraestructura ajena: NO es una barrera físicia ni un "pantano".
+                    // Se comporta como terreno normal (o incluso un leve boost para no frenar el flujo)
+                    Velocity *= 1.02f; // Flujo ininterrumpido
                     nextPos = Position + Velocity * dt;
                 }
             }

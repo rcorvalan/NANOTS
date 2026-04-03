@@ -145,7 +145,7 @@ public partial class StigmergicGrid : Sprite2D
         int y = Mathf.Clamp(Mathf.FloorToInt(worldPos.Y / CellSize), 0, Height - 1);
         if (GridLogic[x,y] == 0) {
             GridLogic[x,y] = 1; // Poner Cable inerte
-            GridClan[x,y] = (byte)Mathf.Clamp((radioFreq * 100f) + 1, 1, 255);
+            GridClan[x,y] = (byte)Mathf.Clamp((radioFreq * 254f) + 1, 1, 255);
             WallLife[x,y] = 255; // Vida util del muro (~21 segundos a 60fps)
             RedrawTexture();
             return true;

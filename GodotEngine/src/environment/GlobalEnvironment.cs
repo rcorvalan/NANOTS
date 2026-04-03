@@ -29,12 +29,25 @@ public partial class GlobalEnvironment : Node2D
             var props = Topography.GetPropsAt(n.Position.X, n.Position.Y);
             
             // CALOR: Drena biomasa más rápido en zonas calientes
-            n.Metabolism.Decay(0.003f, props.heat);
+            bool isIdle = n.Velocity.LengthSquared() < 0.01f && Mathf.Abs(n.CurrentBroadcastSignal) < 0.5f;
+            float erosionRate = 0.003f;
             
-            // RADIACIÓN: Zona mutágena real
+            // RADIACIÓN / MINERALES: Zona mutágena y rica en recursos
             if (props.radiation > 0.5f) {
-                // Deposita mineral (las zonas radiactivas son ricas en recursos minerales)
-                n.Metabolism.Mineral = Mathf.Min(n.Metabolism.MaxMineral, n.Metabolism.Mineral + 0.1f);
+                float radiationEfficiency = 1.0f;
+                float mineralHarvest = 0.1f;
+                
+                // Feature 9.6: Minería Simbiótica (CellularLink Synergy)
+                if (n.ActiveLink != null && n.ActiveLink.Type == "SYMBIOSIS") {
+                    radiationEfficiency = 0.5f; // El daño se divide / disipa entre ambos
+                    mineralHarvest *= 2.0f;     // La extracción se multiplica por resonancia biológica
+                }
+                
+                // Atenuación Radiactiva (30% menos erosión base) + Beneficio Simbiótico
+                erosionRate *= (0.7f * radiationEfficiency);
+                
+                // Deposita mineral
+                n.Metabolism.Mineral = Mathf.Min(n.Metabolism.MaxMineral, n.Metabolism.Mineral + mineralHarvest);
                 
                 // Causa mutación genética real en los pesos neuronales
                 if (n.PoolIndex >= 0 && GD.Randf() < 0.01f) { // 1% chance por frame
@@ -44,6 +57,8 @@ public partial class GlobalEnvironment : Node2D
                     if (n.RadioFrequency > 1f) n.RadioFrequency -= 1f;
                 }
             }
+            
+            n.Metabolism.Decay(erosionRate, props.heat, isIdle);
             
             if (n.Metabolism.IsDead())
                 n.Die();

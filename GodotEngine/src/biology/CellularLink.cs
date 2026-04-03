@@ -12,12 +12,20 @@ public class CellularLink
         A = a;
         B = b;
         Type = type;
+        
+        // Registrar enlace en las entidades
+        if (A != null) A.ActiveLink = this;
+        if (B != null) B.ActiveLink = this;
     }
 
     public void Update()
     {
         Age++;
-        if (A.IsDead || B.IsDead) return;
+        if (A == null || B == null || A.IsDead || B.IsDead) {
+            ClearLinks();
+            Type = "DEAD_LINK";
+            return;
+        }
 
         if (Type == "SYMBIOSIS")
         {
@@ -57,5 +65,10 @@ public class CellularLink
                  Type = "DEAD_LINK"; // Host logró escapar
             }
         }
+    }
+    
+    private void ClearLinks() {
+        if (A != null && A.ActiveLink == this) A.ActiveLink = null;
+        if (B != null && B.ActiveLink == this) B.ActiveLink = null;
     }
 }

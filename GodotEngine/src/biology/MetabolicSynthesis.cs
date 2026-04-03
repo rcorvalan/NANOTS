@@ -16,11 +16,12 @@ public class MetabolicSynthesis
         Mineral = initialMineral;
     }
 
-    public void Decay(float baseDrain, float environmentalHeat)
+    public void Decay(float baseDrain, float environmentalHeat, bool isIdle = false)
     {
         // Calor de -1 a 1
         float heatModifier = 1.0f + (environmentalHeat * 0.5f);
-        Biomass -= (baseDrain * heatModifier);
+        float idleModifier = isIdle ? 0.5f : 1.0f;
+        Biomass -= (baseDrain * heatModifier * idleModifier);
     }
 
     public void Ingest(string type, float amount)
