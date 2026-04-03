@@ -845,8 +845,8 @@ public partial class Main : Node2D
                     agent.CurrentBroadcastSignal *= 0.1f;
                 }
             }
-
-            agent.AgentUpdate(ScreenSize, dt);
+            
+            agent.AgentUpdate(ScreenSize, StigGrid, dt);
             
             // Consumo de Biomasa (Radio ampliado 400px² = ~20px)
             foreach(var f in FoodMgr.Pellets) {
@@ -991,7 +991,7 @@ public partial class Main : Node2D
         
         Predators.RemoveAll(p => p == null || !GodotObject.IsInstanceValid(p) || p.IsDead);
         foreach(var p in Predators) {
-            p.Hunt(qt, ScreenSize);
+            p.Hunt(qt, ScreenSize, StigGrid);
         }
         
         // 5. Instanciar en MultiMesh API

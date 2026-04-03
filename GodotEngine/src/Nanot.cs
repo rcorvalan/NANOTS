@@ -80,7 +80,7 @@ public partial class Nanot : Node2D
         TrustLedger[otherId] = Mathf.Clamp(current + delta, 0f, 1f);
     }
     
-    public void AgentUpdate(Vector2 bounds, float dt = 1.0f)
+    public void AgentUpdate(Vector2 bounds, StigmergicGrid grid = null, float dt = 1.0f)
     {
         if (IsDead) return;
         
@@ -93,7 +93,25 @@ public partial class Nanot : Node2D
         
         Velocity += Acceleration;
         Velocity = Velocity.LimitLength(MaxSpeed);
-        Position += Velocity * dt;
+        
+        Vector2 nextPos = Position + Velocity * dt;
+        
+        // Colisión con estigmergia (barreras físicas)
+        if (grid != null) {
+            if (grid.CheckTile(nextPos) > 0) {
+                // Hay obstáculo, no atravesar
+                Velocity = -Velocity * 0.5f; // Rebote suave con pérdida de inercia
+                nextPos = Position + Velocity * dt;
+                
+                // Si aún así quedaría dentro de un tile sólido, abortar movimiento
+                if (grid.CheckTile(nextPos) > 0) {
+                    nextPos = Position;
+                    Velocity = Vector2.Zero;
+                }
+            }
+        }
+        
+        Position = nextPos;
         Acceleration = Vector2.Zero;
         
         CheckEdges(bounds);

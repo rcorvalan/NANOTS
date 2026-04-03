@@ -27,7 +27,7 @@ public partial class Predator : Node2D
         }
     }
 
-    public void Hunt(QuadTree qt, Vector2 bounds)
+    public void Hunt(QuadTree qt, Vector2 bounds, StigmergicGrid grid = null)
     {
         if (IsDead) return;
         
@@ -80,7 +80,23 @@ public partial class Predator : Node2D
         
         Velocity += Acceleration;
         Velocity = Velocity.LimitLength(MaxSpeed);
-        Position += Velocity;
+        
+        Vector2 nextPos = Position + Velocity;
+        
+        // Colisión con estigmergia (barreras físicas)
+        if (grid != null) {
+            if (grid.CheckTile(nextPos) > 0) {
+                // Hay obstáculo
+                Velocity = -Velocity * 0.5f; 
+                nextPos = Position + Velocity;
+                if (grid.CheckTile(nextPos) > 0) {
+                    nextPos = Position;
+                    Velocity = Vector2.Zero;
+                }
+            }
+        }
+        
+        Position = nextPos;
         Acceleration = Vector2.Zero;
         
         CheckEdges(bounds);
