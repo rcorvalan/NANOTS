@@ -36,5 +36,26 @@ public class CellularLink
                 B.ApplyForce(-diffA);
             }
         }
+        else if (Type == "PARASITE")
+        {
+            // A drena activamente a B (B muere de a poco si no se la saca de encima)
+            float drainRate = 0.5f;
+            if (B.Metabolism.Biomass > drainRate) {
+                B.Metabolism.Biomass -= drainRate;
+                A.Metabolism.Biomass += drainRate * 0.8f; // 80% eficiencia, 20% friccion
+            } else {
+                Type = "DEAD_LINK"; // Host ya no tiene como sustentar
+            }
+            
+            // Atraccion forzosa (B intenta huir ralentizado, A se agarra)
+            float dist = A.Position.DistanceTo(B.Position);
+            if (dist > 0.001f && dist < 100f) {
+                Vector2 pull = (B.Position - A.Position).Normalized();
+                A.ApplyForce(pull * 0.05f); // Parasite salta al host
+                B.ApplyForce(-pull * 0.02f); // Host es mermado fisicamente
+            } else if (dist >= 100f) {
+                 Type = "DEAD_LINK"; // Host logró escapar
+            }
+        }
     }
 }

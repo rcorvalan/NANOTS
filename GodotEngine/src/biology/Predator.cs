@@ -48,12 +48,32 @@ public partial class Predator : Node2D
         {
             if (p.IsDead) continue;
             float dist = Position.DistanceTo(p.Position);
-            
-            // Si lo toca (Distancia < 5), lo devora
-            if (dist < 5.0f) {
-                Biomass += 100f; // Satiety reward!
-                p.Metabolism.Biomass = 0; // Mata al nanot instantáneamente
-                p.Die();
+            // Defender o ser devorado
+            if (dist < 6.0f) {
+                int defendingSwarm = 0;
+                foreach(var swarmMember in prey) {
+                    if (!swarmMember.IsDead && Position.DistanceTo(swarmMember.Position) < 25.0f) {
+                        defendingSwarm++;
+                    }
+                }
+
+                if (defendingSwarm >= 4) {
+                    // ¡Enjambre Ataca al Depredador!
+                    Biomass -= 25f * defendingSwarm; // El depredador sufre daño masivo
+                    Velocity = -Velocity * 1.5f; // Es repelido
+                    
+                    // Recompensa inmediata a todos los atacantes
+                    foreach(var swarmMember in prey) {
+                         if (!swarmMember.IsDead && Position.DistanceTo(swarmMember.Position) < 25.0f) {
+                             swarmMember.RewardSignal += 1.0f; // Exito táctico de grupo
+                         }
+                    }
+                } else {
+                    // Depredador tiene éxito
+                    Biomass += 100f; // Satiety reward!
+                    p.Metabolism.Biomass = 0; // Mata al nanot instantáneamente
+                    p.Die();
+                }
             }
             
             if (dist < closestDist) {
@@ -83,16 +103,12 @@ public partial class Predator : Node2D
         
         Vector2 nextPos = Position + Velocity;
         
-        // Colisión con estigmergia (barreras físicas)
+        // Colisión con estigmergia (pantano)
         if (grid != null) {
             if (grid.CheckTile(nextPos) > 0) {
-                // Hay obstáculo
-                Velocity = -Velocity * 0.5f; 
+                // Hay obstáculo (estigmergia): ralentiza al depredador enormemente
+                Velocity = Velocity * 0.3f; // Pierde un 70% de inercia
                 nextPos = Position + Velocity;
-                if (grid.CheckTile(nextPos) > 0) {
-                    nextPos = Position;
-                    Velocity = Vector2.Zero;
-                }
             }
         }
         

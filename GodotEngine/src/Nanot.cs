@@ -26,6 +26,7 @@ public partial class Nanot : Node2D
     public float SignalType = 0f;
     public float SignalDirX = 0f;
     public float SignalDirY = 0f;
+    public float CurrentHelpSignal = 0f;
     
     // Sociología: Engaño y Reputación
     public float DeceptionTrait = 0f;
@@ -40,6 +41,7 @@ public partial class Nanot : Node2D
     public float DbgFoodProximity = 0f;               // Proximidad a comida [0-1]
     public Vector2 DbgSocialFoodDir = Vector2.Zero;   // Dirección social a comida reportada
     public Vector2 DbgSocialDangerDir = Vector2.Zero;  // Dirección social de peligro reportado
+    public Vector2 DbgSocialHelpDir = Vector2.Zero;    // Dirección social de auxilio reportado
     public Vector2 DbgCohesion = Vector2.Zero;         // Fuerza Boids: cohesión
     public Vector2 DbgSeparation = Vector2.Zero;       // Fuerza Boids: separación
     public Vector2 DbgAlignment = Vector2.Zero;        // Fuerza Boids: alineación
@@ -80,9 +82,9 @@ public partial class Nanot : Node2D
         TrustLedger[otherId] = Mathf.Clamp(current + delta, 0f, 1f);
     }
     
-    public void AgentUpdate(Vector2 bounds, StigmergicGrid grid = null, float dt = 1.0f)
+    public int AgentUpdate(Vector2 bounds, StigmergicGrid grid = null, float dt = 1.0f)
     {
-        if (IsDead) return;
+        if (IsDead) return 0;
         
         Age++;
         
@@ -94,19 +96,32 @@ public partial class Nanot : Node2D
         Velocity += Acceleration;
         Velocity = Velocity.LimitLength(MaxSpeed);
         
+        if (Velocity.LengthSquared() > 0.001f) {
+            Rotation = Velocity.Angle() + (Mathf.Pi / 2.0f);
+        }
+        
         Vector2 nextPos = Position + Velocity * dt;
         
-        // Colisión con estigmergia (barreras físicas)
+        // Colisión con estigmergia (Facciones e Infraestructura)
         if (grid != null) {
-            if (grid.CheckTile(nextPos) > 0) {
-                // Hay obstáculo, no atravesar
-                Velocity = -Velocity * 0.5f; // Rebote suave con pérdida de inercia
-                nextPos = Position + Velocity * dt;
+            byte tileClan = grid.GetTileClan(nextPos);
+            if (tileClan != 0) {
+                byte myClan = (byte)Mathf.Clamp((RadioFrequency * 100f) + 1, 1, 255);
+                int diff = Mathf.Abs((int)tileClan - (int)myClan);
+                if (diff > 50) diff = 100 - diff; // Corrección circular del Hue (0 y 100 son el mismo color/clan)
                 
-                // Si aún así quedaría dentro de un tile sólido, abortar movimiento
-                if (grid.CheckTile(nextPos) > 0) {
-                    nextPos = Position;
-                    Velocity = Vector2.Zero;
+                bool isAlly = diff <= 12; // 12% de tolerancia genética para pertenecer a la Tribu
+                
+                if (isAlly) {
+                    // Camino del propio clan: Autopista rápida (boost de velocidad inercial)
+                    Velocity *= 1.05f; 
+                    Velocity = Velocity.LimitLength(MaxSpeed * 1.5f); // Permiso super-velocidad sobre carreteras
+                    nextPos = Position + Velocity * dt;
+                } else {
+                    // Infraestructura enemiga: Actúa como pantano/telaraña.
+                    // Ralentiza drásticamente el movimiento pero no bloquea el mapa permanentemente.
+                    Velocity = Velocity * 0.25f; // Pierde 75% de inercia al cruzar territorio hostil
+                    nextPos = Position + Velocity * dt;
                 }
             }
         }
@@ -114,13 +129,13 @@ public partial class Nanot : Node2D
         Position = nextPos;
         Acceleration = Vector2.Zero;
         
-        CheckEdges(bounds);
-        Rotation = Velocity.Angle() + (Mathf.Pi / 2.0f);
+        
+        int crossState = CheckEdges(bounds);
         
         // Senescencia (Feature 4): Muerte por vejez
         if (Age > MAX_AGE) {
             Die();
-            return;
+            return 0;
         }
         
         // Lógica de fertilidad (requiere 2 padres, se chequea en Main.cs)
@@ -131,16 +146,46 @@ public partial class Nanot : Node2D
         if (Metabolism.Biomass <= 0) {
             Die();
         }
+        
+        return crossState;
     }
 
-    private void CheckEdges(Vector2 bounds)
+    private int CheckEdges(Vector2 bounds)
     {
+        int cross = 0;
         Vector2 pos = Position;
-        if (pos.X < 0) { pos.X = 0; Velocity.X *= -1; }
-        if (pos.X > bounds.X) { pos.X = bounds.X; Velocity.X *= -1; }
-        if (pos.Y < 0) { pos.Y = 0; Velocity.Y *= -1; }
-        if (pos.Y > bounds.Y) { pos.Y = bounds.Y; Velocity.Y *= -1; }
+        if (pos.X < 0) { pos.X = 0; Velocity.X *= -1; cross = -1; }
+        else if (pos.X > bounds.X) { pos.X = bounds.X; Velocity.X *= -1; cross = 1; }
+        else if (pos.Y < 0) { pos.Y = 0; Velocity.Y *= -1; cross = -2; }
+        else if (pos.Y > bounds.Y) { pos.Y = bounds.Y; Velocity.Y *= -1; cross = 2; }
         Position = pos;
+        return cross;
+    }
+    
+    // Feature: Cross-Universe Serialization
+    public byte[] ExportGenome() {
+        using (var ms = new System.IO.MemoryStream())
+        using (var writer = new System.IO.BinaryWriter(ms)) {
+            writer.Write(Metabolism.Biomass);
+            writer.Write(Metabolism.Mineral);
+            writer.Write(RadioFrequency);
+            writer.Write(DeceptionTrait);
+            writer.Write(CommRadius);
+            writer.Write(Age);
+            return ms.ToArray();
+        }
+    }
+    
+    public void ImportGenome(byte[] data) {
+        using (var ms = new System.IO.MemoryStream(data))
+        using (var reader = new System.IO.BinaryReader(ms)) {
+            Metabolism.Biomass = reader.ReadSingle();
+            Metabolism.Mineral = reader.ReadSingle();
+            RadioFrequency = reader.ReadSingle();
+            DeceptionTrait = reader.ReadSingle();
+            CommRadius = reader.ReadSingle();
+            Age = reader.ReadInt32();
+        }
     }
     
     public void Die() {

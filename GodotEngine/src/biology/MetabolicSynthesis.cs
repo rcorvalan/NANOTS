@@ -6,6 +6,9 @@ public class MetabolicSynthesis
     public float Mineral;
     public float MaxBiomass = 200f;
     public float MaxMineral = 100f;
+    
+    // Feature: Fertilidad dinámica controlada desde Main UI
+    public static float FertilityThreshold = 100f;
 
     public MetabolicSynthesis(float initialBiomass = 100f, float initialMineral = 0f)
     {
@@ -28,11 +31,11 @@ public class MetabolicSynthesis
             Mineral = Mathf.Min(MaxMineral, Mineral + amount);
     }
 
-    public bool CanReproduce() => Biomass > 100f && Mineral > 30f;
+    public bool CanReproduce() => Biomass > FertilityThreshold && Mineral > 30f;
 
     public void ConsumeForReproduction()
     {
-        Biomass -= 60f;
+        Biomass -= (FertilityThreshold * 0.6f); // Gasta el 60% del umbral exigido
         Mineral -= 30f;
     }
 

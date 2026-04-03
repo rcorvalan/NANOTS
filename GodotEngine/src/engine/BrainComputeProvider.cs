@@ -7,8 +7,8 @@ public class BrainComputeProvider
     private Rid shader;
     private Rid pipeline;
 
-    public uint InputCount = 16;
-    public uint OutputCount = 7;
+    public uint InputCount = 21;
+    public uint OutputCount = 12;
     public uint HiddenCount = 8;
     public uint AgentCount;
 

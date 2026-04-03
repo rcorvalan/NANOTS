@@ -19,6 +19,10 @@ public partial class FoodManager : MultiMeshInstance2D
     private int PelletsPerSpawn = 5;
     private float WorldW, WorldH;
     
+    // Feature: Nodos Estratégicos (Oasis)
+    public List<Vector2> ResourceNodes = new List<Vector2>();
+    public float AbundanceMultiplier = 1.0f;
+    
     public override void _Ready()
     {
         Multimesh = new MultiMesh();
@@ -38,6 +42,21 @@ public partial class FoodManager : MultiMeshInstance2D
     public void SetWorldSize(float w, float h) {
         WorldW = w;
         WorldH = h;
+        
+        // Generar 3 Oasis permanentes
+        RandomNumberGenerator rng = new RandomNumberGenerator();
+        rng.Randomize();
+        for(int i = 0; i < 3; i++) {
+            ResourceNodes.Add(new Vector2(rng.RandfRange(150, WorldW - 150), rng.RandfRange(150, WorldH - 150)));
+        }
+    }
+    
+    public override void _Draw() {
+        // Dibujar tenues campos de energía dorada bajo los oasis
+        foreach (var node in ResourceNodes) {
+            DrawCircle(node, 120f, new Color(1f, 0.9f, 0.1f, 0.05f)); 
+            DrawCircle(node, 60f, new Color(1f, 0.9f, 0.1f, 0.1f)); 
+        }
     }
     
     public void DropFood(Vector2 pos, float value)
@@ -57,17 +76,25 @@ public partial class FoodManager : MultiMeshInstance2D
         SpawnTimer += 0.016f; // ~60fps
         if (SpawnTimer >= SpawnInterval && Pellets.Count < MAX_PELLETS - 100) {
             SpawnTimer = 0f;
-            RandomNumberGenerator rng = new RandomNumberGenerator();
-            rng.Randomize();
+            int spawnAmount = Mathf.RoundToInt(PelletsPerSpawn * AbundanceMultiplier);
             
-            // Punto focal del racimo (la comida crece agrupada como en la naturaleza)
-            Vector2 focalPoint = new Vector2(rng.RandfRange(80, WorldW - 80), rng.RandfRange(80, WorldH - 80));
-            
-            for(int i = 0; i < PelletsPerSpawn; i++) {
-                Vector2 offset = new Vector2(rng.RandfRange(-60, 60), rng.RandfRange(-60, 60));
-                DropFood(focalPoint + offset, rng.RandfRange(60f, 75f));
+            if (spawnAmount > 0 && ResourceNodes.Count > 0) {
+                RandomNumberGenerator rng = new RandomNumberGenerator();
+                rng.Randomize();
+                
+                // Elegir aleatoriamente uno de los nodos (Oasis) ya definidos
+                Vector2 focalPoint = ResourceNodes[rng.RandiRange(0, ResourceNodes.Count - 1)];
+                
+                for(int i = 0; i < spawnAmount; i++) {
+                    // Concentrado cerca del centro con leve desvío (radio de ~60px)
+                    Vector2 offset = new Vector2(rng.RandfRange(-60, 60), rng.RandfRange(-60, 60));
+                    DropFood(focalPoint + offset, rng.RandfRange(60f, 75f));
+                }
             }
         }
+        
+        // Solicitar repintado de halos de oasis si es necesario
+        QueueRedraw();
 
         // Pudrir alimento (-0.02f en vez de -0.1f para que dure más)
         foreach(var p in Pellets) {

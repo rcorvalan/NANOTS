@@ -4,9 +4,9 @@ using System;
 public class NeuroEvolutionNetwork
 {
     private int PopSize;
-    public int Inputs = 16;
+    public int Inputs = 21;
     public int Hidden = 8;
-    public int Outputs = 7;
+    public int Outputs = 12;
 
     public float[] FlatWeights;
     public float[] FlatBiases;
