@@ -55,6 +55,13 @@ public partial class Main : Node2D
     private PacketPeerUdp udpPeer;
     private bool crossUniverseEnabled = false;
 
+    // Temporizador Depredadores
+    private float PredatorSpawnTimer = 0f;
+    private const float PREDATOR_INTERVAL = 900f; // 15 min
+
+    // Archivo de Aprendizaje
+    private const string LEARNING_FILE_PATH = "c:/Users/rcorv/OneDrive - Adecua SpA/Escritorio/Nanots/Metricas/nanot_learning_v9.bin";
+
     public override void _Ready()
     {
         ScreenSize = GetViewportRect().Size;
@@ -63,6 +70,13 @@ public partial class Main : Node2D
         BCP = new BrainComputeProvider((uint)POP_LIMIT);
         NEAT = new NeuroEvolutionNetwork(POP_LIMIT);
         FlatInputs = new float[POP_LIMIT * NEAT.Inputs]; // Dynamic inputs size
+        
+        // Cargar Aprendizaje si existe
+        if (NEAT.LoadLearning(LEARNING_FILE_PATH)) {
+            GD.Print("Aprendizaje de sesión anterior cargado exitosamente.");
+        }
+        
+        GetTree().AutoAcceptQuit = false; // Interceptar cierre para guardar
         
         udpPeer = new PacketPeerUdp();
         udpPeer.Bind(9876);
@@ -140,6 +154,7 @@ public partial class Main : Node2D
         // Panel Principal
         PanelContainer panel = new PanelContainer();
         panel.Position = new Vector2(20, 20);
+        panel.CustomMinimumSize = new Vector2(450, 0); // Panel principal base para evitar jitter
         
         // Estilo Base oscuro y translúcido
         StyleBoxFlat bg = new StyleBoxFlat();
@@ -175,6 +190,7 @@ public partial class Main : Node2D
         btnCollapse.Pressed += () => {
             vbox.Visible = !vbox.Visible;
             btnCollapse.Text = vbox.Visible ? "-" : "+";
+            panel.ResetSize();
         };
 
         bool isDragging1 = false;
@@ -423,6 +439,18 @@ public partial class Main : Node2D
         };
         slideBox.AddChild(btnRestart);
         
+        // BORRAR APRENDIZAJE Button
+        Button btnDeleteLearning = new Button();
+        btnDeleteLearning.Text = "🗑️ Borrar Aprendizaje y Reiniciar";
+        btnDeleteLearning.AddThemeColorOverride("font_color", new Color(1, 0.4f, 0.4f, 1));
+        btnDeleteLearning.Pressed += () => {
+             if (System.IO.File.Exists(LEARNING_FILE_PATH)) {
+                 System.IO.File.Delete(LEARNING_FILE_PATH);
+             }
+             GetTree().ReloadCurrentScene();
+        };
+        slideBox.AddChild(btnDeleteLearning);
+        
         // EXIT Button
         Button btnExit = new Button();
         btnExit.Text = "❌ Salir de Simulación";
@@ -471,7 +499,8 @@ public partial class Main : Node2D
 
         // --- GLOSARIO DE COLORES (Arriba a la derecha) ---
         PanelContainer legend = new PanelContainer();
-        legend.Position = new Vector2(ScreenSize.X - 350, 20);
+        legend.Position = new Vector2(ScreenSize.X - 380, 20);
+        legend.CustomMinimumSize = new Vector2(360, 0);
         legend.AddThemeStyleboxOverride("panel", bg);
         
         VBoxContainer legendMain = new VBoxContainer();
@@ -496,6 +525,7 @@ public partial class Main : Node2D
         btnLegCol.Pressed += () => {
             lgBox.Visible = !lgBox.Visible;
             btnLegCol.Text = lgBox.Visible ? "-" : "+";
+            legend.ResetSize();
         };
 
         bool isDragging2 = false;
@@ -556,7 +586,8 @@ public partial class Main : Node2D
 
         // --- PANEL DE INSPECCION INDIVIDUAL (MICROSCÓPIO) ---
         InspectorUI = new PanelContainer();
-        InspectorUI.Position = new Vector2(ScreenSize.X - 350, ScreenSize.Y - 620);
+        InspectorUI.Position = new Vector2(ScreenSize.X - 380, ScreenSize.Y - 620);
+        InspectorUI.CustomMinimumSize = new Vector2(360, 0);
         InspectorUI.Visible = false;
         
         StyleBoxFlat bgInsp = new StyleBoxFlat();
@@ -589,6 +620,7 @@ public partial class Main : Node2D
         btnInspCol.Pressed += () => {
             inspBox.Visible = !inspBox.Visible;
             btnInspCol.Text = inspBox.Visible ? "-" : "+";
+            InspectorUI.ResetSize();
         };
 
         bool isDragging3 = false;
@@ -778,11 +810,11 @@ public partial class Main : Node2D
                 HorizontalAlignment.Left, -1, 11, new Color(1, 1, 1, 0.9f));
         }
         
-        // Feature 9.6: Visualizar Enlaces de Simbiosis Activos
+        // Feature 9.6: Visualizar Enlaces de Simbiosis y Parasitismo
         foreach(var link in Links) {
-            if (link.Type == "SYMBIOSIS") {
-                Color linkCol = new Color(0.2f, 1.0f, 1.0f, 0.4f);
-                DrawLine(link.A.Position, link.B.Position, link.Type == "SYMBIOSIS" ? linkCol : Colors.Red, 2.0f);
+            if (link.Type == "SYMBIOSIS" || link.Type == "PARASITE") {
+                Color linkCol = link.Type == "SYMBIOSIS" ? new Color(0.2f, 1.0f, 1.0f, 0.8f) : new Color(1.0f, 0.2f, 0.2f, 0.8f);
+                DrawLine(link.A.Position, link.B.Position, linkCol, 2.0f);
             }
         }
         
@@ -956,6 +988,15 @@ public partial class Main : Node2D
         StigGrid.DestroyTile(new Vector2(cx + 300, cy));
     }
 
+    public override void _Notification(int what)
+    {
+        if (what == NotificationWMCloseRequest) {
+            GD.Print("Guardando aprendizaje antes de salir...");
+            NEAT?.SaveLearning(LEARNING_FILE_PATH);
+            GetTree().Quit();
+        }
+    }
+
     public override void _Process(double delta)
     {
         float dt = (float)delta * 60f; // Normalizar a 60fps base
@@ -971,6 +1012,18 @@ public partial class Main : Node2D
             TelemetryTimer = 0f;
             CaptureTelemetrySnapshot();
             CaptureCommSnapshot();
+        }
+        
+        // Temporizador de Depredador Periódico (cada 15 minutos en tiempo real)
+        PredatorSpawnTimer += (float)delta;
+        if (PredatorSpawnTimer >= PREDATOR_INTERVAL) {
+            PredatorSpawnTimer = 0f;
+            Predator p = new Predator();
+            p.Initialize(new Vector2((float)GD.RandRange(100, ScreenSize.X - 100), (float)GD.RandRange(100, ScreenSize.Y - 100)));
+            Predators.Add(p);
+            AddChild(p);
+            ShowStatus("⚠️ ¡Un Depredador acaba de aparecer en la zona!");
+            GD.Print("Spawning periodic predator.");
         }
         
         // --- FEDERACION CROSS-UNIVERSE LECTURA ---
@@ -1003,13 +1056,25 @@ public partial class Main : Node2D
                     // Feature 2: Reciclaje orgánico proporcional (30%)
                     FoodMgr.DropFood(n.Position, n.Metabolism.MaxBiomass * 0.3f);
                 }
-                Pop.RemoveAt(i);
+                
+                // Fix O(1) Swap-and-Pop: Previene desincronización de las matrices neuronales
+                int lastIndex = Pop.Count - 1;
+                if (i != lastIndex) {
+                    var lastAgent = Pop[lastIndex];
+                    Pop[i] = lastAgent;
+                    lastAgent.PoolIndex = i;
+                    NEAT.SwapBrains(i, lastIndex);
+                }
+                Pop.RemoveAt(lastIndex);
             }
         }
         
         while(Pop.Count > TargetPopulation && Pop.Count > 0) {
-            Pop[0].Die(); // Marcar para morir
-            Pop.RemoveAt(0);
+            int lastIdx = Pop.Count - 1;
+            if (GodotObject.IsInstanceValid(Pop[lastIdx])) {
+                Pop[lastIdx].Die(); // Marcar para morir
+            }
+            Pop.RemoveAt(lastIdx);
         }
         
         // Actualizar Enlaces (Symbiosis/Parasitism)
@@ -1149,11 +1214,11 @@ public partial class Main : Node2D
             agent.DbgSocialHelpDir = new Vector2(socialHelpDirX, socialHelpDirY);
             agent.DbgSocialDangerDir = new Vector2(socialDangerDirX, socialDangerDirY);
             
-            // --- Eje 4.2 / Highway Comm Boost ---
+            // --- Eje 4.2 / Highway Comm Boost (v9.6 Fix) ---
             byte tileState = StigGrid.CheckTile(agent.Position);
             if (tileState > 0) {
-                float boost = (tileState == 2) ? 1.5f : 1.2f;
-                agent.CommRadius *= boost; // Boost de radio por estigmergia Conductiva
+                float multiplier = (tileState == 2) ? 2.5f : 1.5f; // v9.6: Boost mas agresivo pero NO acumulativo
+                agent.CommRadius = Mathf.Min(400f, Nanot.BASE_COMM_RADIUS * multiplier); 
             }
         }
 
@@ -1240,6 +1305,10 @@ public partial class Main : Node2D
                 agent.SignalDirX = nearFoodDir.X * deceptionFlip;
                 agent.SignalDirY = nearFoodDir.Y * deceptionFlip;
                 agent.CurrentBroadcastSignal = 1.0f; // Grito fuerte
+            } else if (agent.SignalType < -0.5f && agent.CurrentBroadcastSignal > 0.8f) {
+                // Instinto de Pánico Mantenido: fue asustado por Predator en el ciclo físico anterior
+                // No sobreescribimos su señal P2P para que logre propagarse su grito en este frame
+                agent.CurrentHelpSignal = 1.0f; // También pide ayuda por reflejo
             } else {
                 agent.SignalType = outs[4]; // La red decide qué decir
                 agent.SignalDirX = outs[0]; // Comparte su dirección de movimiento
@@ -1257,6 +1326,13 @@ public partial class Main : Node2D
                 agent.ApplyForce(socialHelpPull * 0.02f * outs[10]); // Fuerza hacia el rescate, guiada por Empatía (outs[10])
             }
             
+            // Instinto Reactivo contra Depredador (Huida Guiada P2P)
+            if (Mathf.Abs(agentInputs[16]) > 0.01f || Mathf.Abs(agentInputs[17]) > 0.01f) {
+                Vector2 socialDangerPull = new Vector2(agentInputs[16], agentInputs[17]).Normalized();
+                // Fuerza instintiva para huir en la dirección reportada unida a los demás (sin pasar por IA)
+                agent.ApplyForce(socialDangerPull * 0.04f); 
+            }
+            
             // Reducir significativamente la deriva de frecuencia para que las facciones (clanes) sean estables
             agent.RadioFrequency += outs[5] * 0.0005f;
             if (agent.RadioFrequency < 0) agent.RadioFrequency += 1f;
@@ -1267,10 +1343,10 @@ public partial class Main : Node2D
             Vector2 interactPos = agent.Position - forwardDir * 16f;
             
             // Acciones Estigmérgicas (Out 6)
-            if (outs[6] > 0.5f && agent.Metabolism.Biomass > 2f) {
+            if (outs[6] > 0.5f && agent.Metabolism.Biomass > 0.5f) {
                 // Instinto de construcción
                 if (StigGrid.PlaceTile(interactPos, agent.RadioFrequency)) { // True si estaba libre y ahora es conductor
-                    agent.Metabolism.Biomass -= 2f;
+                    agent.Metabolism.Biomass -= 0.5f; // Costo reducido para evitar bancarrota instantánea (antes 2.0f)
                 }
             } else if (outs[6] < -0.5f) {
                 // Instinto de descomposición
@@ -1300,9 +1376,9 @@ public partial class Main : Node2D
             float hungerRatio = agent.Metabolism.Biomass / agent.Metabolism.MaxBiomass;
             if (hungerRatio < 0.6f && agent.DbgFoodDir != Vector2.Zero) {
                 float desperacion = 1.0f - (hungerRatio / 0.6f); // 0 a 1 dependiendo del hambre
-                // Condicionamiento Clásico: El instinto ahora es ponderado por outs[2] (Atracción o Evasión de la comida percibida)
-                // outs[2] en [-1, 1], lo escalamos a [-2.5, 2.5] aprox
-                Vector2 instintoComida = agent.DbgFoodDir * agent.MaxForce * (2.5f + desperacion * 7.0f) * outs[2]; 
+                // Fix: Si el hambre es crítica (<0.4f), el impulso de supervivencia anula la ignorancia neuronal
+                float survivalInstinct = hungerRatio < 0.4f ? Mathf.Max(0.1f, Mathf.Abs(outs[2])) : outs[2];
+                Vector2 instintoComida = agent.DbgFoodDir * agent.MaxForce * (2.5f + desperacion * 7.0f) * survivalInstinct; 
                 agent.ApplyForce(instintoComida);
                 
                 // Si están muy hambrientos, instintivamente frenan los gritos y construcciones para no morir
@@ -1311,6 +1387,22 @@ public partial class Main : Node2D
                 }
             }
             
+            // --- EVITAR BORDES Y ESQUINAS (Boundary Avoidance) ---
+            // Fuerza repulsiva para prevenir que las tribus se queden atascadas en los límites
+            float margin = 80f;
+            Vector2 avoidBorder = Vector2.Zero;
+            if (agent.Position.X < margin) avoidBorder.X = (margin - agent.Position.X);
+            else if (agent.Position.X > ScreenSize.X - margin) avoidBorder.X = -(agent.Position.X - (ScreenSize.X - margin));
+            
+            if (agent.Position.Y < margin) avoidBorder.Y = (margin - agent.Position.Y);
+            else if (agent.Position.Y > ScreenSize.Y - margin) avoidBorder.Y = -(agent.Position.Y - (ScreenSize.Y - margin));
+
+            if (avoidBorder.LengthSquared() > 0) {
+                // La fuerza crece conforme más se acercan al borde
+                float forceMagnitude = agent.MaxForce * 3.5f;
+                agent.ApplyForce(avoidBorder.Normalized() * forceMagnitude);
+            }
+
             int crossFlag = agent.AgentUpdate(ScreenSize, StigGrid, dt);
             
             // --- FEDERACIÓN CROSS-UNIVERSE (EXPORTAR GENOMA) ---
@@ -1321,9 +1413,9 @@ public partial class Main : Node2D
                 continue;
             }
             
-            // Consumo de Biomasa (Radio ampliado 400px² = ~20px)
+            // Consumo de Biomasa (Radio ampliado 900px² = 30px)
             foreach(var f in FoodMgr.Pellets) {
-                if (!f.IsRotten && agent.Position.DistanceSquaredTo(f.Position) < 400.0f) {
+                if (!f.IsRotten && agent.Position.DistanceSquaredTo(f.Position) < 900.0f) {
                     agent.Metabolism.Ingest("BIOMASS", f.Value);
                     f.Value = 0;
                 }
@@ -1347,6 +1439,21 @@ public partial class Main : Node2D
                 // Feature 5: Separación (todos los vecinos, no solo misma especie)
                 if (dist < 18f && dist > 0.001f) {
                     separation += (agent.Position - sn.Position).Normalized() / dist;
+                    
+                    // Feature 9.6 / Symbiosis & Parasitism: Colisiones físicas generan enlaces biológicos
+                    if (dist < 12f && agent.ActiveLink == null && sn.ActiveLink == null && Links.Count < 500) {
+                        if (sameSpecies) {
+                            float trust = agent.GetTrust(sn.PoolIndex);
+                            if (trust > 0.8f) {
+                                Links.Add(new CellularLink(agent, sn, "SYMBIOSIS"));
+                            }
+                        } else {
+                            // Si son de distinta especie, el hambriento (agent) parasita al lleno (sn)
+                            if (agent.Metabolism.Biomass < 20f && sn.Metabolism.Biomass > 40f) {
+                                Links.Add(new CellularLink(agent, sn, "PARASITE"));
+                            }
+                        }
+                    }
                 }
                 
                 if (sameSpecies) {
@@ -1375,15 +1482,6 @@ public partial class Main : Node2D
                         } else if (foodNearSpeaker) {
                             agent.UpdateTrust(sn.PoolIndex, 0.02f); // Gana reputación rápido
                         }
-                        
-                        // Eje 4: Crear Vínculo Simbiótico (Solo misma especie y alta confianza)
-                        if (dist < 12f && trust > 0.8f && Links.Count < 500) {
-                             bool alreadyLinked = false;
-                             foreach(var l in Links) if((l.A == agent && l.B == sn) || (l.A == sn && l.B == agent)) { alreadyLinked = true; break; }
-                             if(!alreadyLinked) {
-                                 Links.Add(new CellularLink(agent, sn, "SYMBIOSIS"));
-                             }
-                        }
                     }
                 }
             }
@@ -1397,6 +1495,10 @@ public partial class Main : Node2D
                 
                 // Aplicar Condicionamiento Operante: La red neuronal (HebbianMatrix) dicta la fuerza de Cohesión (outs[3]) y Alineación (outs[8])
                 float cohWeight = 0.008f * outs[3];
+                // ORGANIZACIÓN: Si hay pánico de depredador en sus inputs sociales, el instinto gregario anula la decisión IA. Aplican 'Muro de Escudos'.
+                if (Mathf.Abs(agentInputs[16]) > 0.01f || Mathf.Abs(agentInputs[17]) > 0.01f) {
+                    cohWeight = 0.08f; // Cohesión extrema e instintiva
+                }
                 float aliWeight = 0.005f * outs[8];
                 agent.ApplyForce(cohesion.Normalized() * cohWeight); // Cohesión
                 agent.ApplyForce(alignment.Normalized() * aliWeight); // Alineación

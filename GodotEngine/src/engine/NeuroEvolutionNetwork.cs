@@ -55,6 +55,23 @@ public class NeuroEvolutionNetwork
         }
     }
 
+    public void SwapBrains(int targetIndex, int sourceIndex)
+    {
+        if (targetIndex == sourceIndex) return;
+        
+        int offsetT_W = targetIndex * W_total;
+        int offsetS_W = sourceIndex * W_total;
+        for (int i = 0; i < W_total; i++) {
+            FlatWeights[offsetT_W + i] = FlatWeights[offsetS_W + i];
+        }
+
+        int offsetT_B = targetIndex * B_total;
+        int offsetS_B = sourceIndex * B_total;
+        for (int i = 0; i < B_total; i++) {
+            FlatBiases[offsetT_B + i] = FlatBiases[offsetS_B + i];
+        }
+    }
+
     public void Inherit(int childIndex, int parentIndex)
     {
         int pW = parentIndex * W_total;
@@ -116,6 +133,54 @@ public class NeuroEvolutionNetwork
                 FlatWeights[wIdx] += delta;
                 FlatWeights[wIdx] = Mathf.Clamp(FlatWeights[wIdx], -5f, 5f);
             }
+        }
+    }
+
+    /// <summary>
+    /// Guarda los pesos y sesgos evolutivos en un archivo binario.
+    /// Utiliza Buffer.BlockCopy para una escritura masiva ultra rápida.
+    /// </summary>
+    public void SaveLearning(string absolutePath)
+    {
+        try {
+            int wBytes = FlatWeights.Length * sizeof(float);
+            int bBytes = FlatBiases.Length * sizeof(float);
+            byte[] fullData = new byte[wBytes + bBytes];
+            
+            Buffer.BlockCopy(FlatWeights, 0, fullData, 0, wBytes);
+            Buffer.BlockCopy(FlatBiases, 0, fullData, wBytes, bBytes);
+            
+            System.IO.File.WriteAllBytes(absolutePath, fullData);
+        } catch (Exception ex) {
+            GD.PrintErr($"[NEAT] Error saving learning: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// Intenta restaurar el aprendizaje de una sesión anterior.
+    /// </summary>
+    public bool LoadLearning(string absolutePath)
+    {
+        try {
+            if (!System.IO.File.Exists(absolutePath)) return false;
+            
+            byte[] fullData = System.IO.File.ReadAllBytes(absolutePath);
+            int wBytes = FlatWeights.Length * sizeof(float);
+            int bBytes = FlatBiases.Length * sizeof(float);
+            
+            // Validacion de compatibilidad basica
+            if (fullData.Length != wBytes + bBytes) {
+                GD.PrintErr("[NEAT] Archivo de aprendizaje incompatible. Tamaño de red diferente.");
+                return false;
+            }
+            
+            Buffer.BlockCopy(fullData, 0, FlatWeights, 0, wBytes);
+            Buffer.BlockCopy(fullData, wBytes, FlatBiases, 0, bBytes);
+            return true;
+            
+        } catch (Exception ex) {
+            GD.PrintErr($"[NEAT] Error loading learning: {ex.Message}");
+            return false;
         }
     }
 }

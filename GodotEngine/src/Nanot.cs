@@ -19,7 +19,8 @@ public partial class Nanot : Node2D
     // Comunicación P2P Estructurada
     public float RadioFrequency = 0f;
     public float CurrentBroadcastSignal = 0f;
-    public float CommRadius = 60f;
+    public const float BASE_COMM_RADIUS = 60f;
+    public float CommRadius = BASE_COMM_RADIUS;
     public int lastBroadcastTick = 0;
     public const int BROADCAST_COOLDOWN = 5; // Ticks entre transmisiones
     public const float METABOLIC_RADIO_COST = 0.01f; // Reducido al 20% (era 0.05)
@@ -104,6 +105,9 @@ public partial class Nanot : Node2D
     {
         if (IsDead) return 0;
         
+        // Reset transitorios (Highway Boosts de Main.cs)
+        CommRadius = BASE_COMM_RADIUS;
+        
         Age++;
         
         // Costo energético de comunicación (Feature 1 - Rebalanceado v9.6)
@@ -135,14 +139,13 @@ public partial class Nanot : Node2D
                 bool isAlly = diff <= 12; // 12% de tolerancia genética para pertenecer a la Tribu
                 
                 if (isAlly) {
-                    // Camino del propio clan: Autopista rápida (boost de velocidad inercial)
-                    Velocity *= 1.2f; // v9.6: Mas aceleracion en infraestructura aliada
+                    // Camino del propio clan: Autopista rápida (boost de aceleración)
+                    Acceleration += Velocity.Normalized() * 0.15f; 
                     Velocity = Velocity.LimitLength(MaxSpeed * 2.0f); // Permiso super-velocidad sobre carreteras
                     nextPos = Position + Velocity * dt;
                 } else {
-                    // Infraestructura ajena: NO es una barrera físicia ni un "pantano".
-                    // Se comporta como terreno normal (o incluso un leve boost para no frenar el flujo)
-                    Velocity *= 1.02f; // Flujo ininterrumpido
+                    // Infraestructura ajena: Flujo constante sin penalización
+                    Acceleration += Velocity.Normalized() * 0.02f;
                     nextPos = Position + Velocity * dt;
                 }
             }

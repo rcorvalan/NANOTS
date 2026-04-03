@@ -103,12 +103,28 @@ public partial class Predator : Node2D
         
         Vector2 nextPos = Position + Velocity;
         
-        // Colisión con estigmergia (pantano)
+        // Interacción con estigmergia (rastros)
         if (grid != null) {
-            if (grid.CheckTile(nextPos) > 0) {
-                // Hay obstáculo (estigmergia): ralentiza al depredador enormemente
-                Velocity = Velocity * 0.3f; // Pierde un 70% de inercia
-                nextPos = Position + Velocity;
+            byte tileClan = grid.GetTileClan(nextPos);
+            if (tileClan > 0) {
+                // No hay penalización de movimiento (los depredadores no están sujetos a muros)
+                
+                // Al pasar un depredador por un rastro, los nanots que estén sobre él lo pueden sentir
+                foreach(var p in prey) {
+                    if (p.IsDead) continue;
+                    // Si el nanot está sobre el mismo rastro (misma vibración/feromona)
+                    if (grid.GetTileClan(p.Position) == tileClan) {
+                        // Siente el peligro a través del rastro
+                        p.SignalType = -1.0f; // Peligro
+                        p.CurrentBroadcastSignal = 1.0f; // Grito de alerta máxima instantáneo
+                        Vector2 avoidDir = (p.Position - Position).Normalized();
+                        p.SignalDirX = avoidDir.X;
+                        p.SignalDirY = avoidDir.Y;
+                        
+                        // Respuesta de huida / sobresalto nervioso
+                        p.ApplyForce(avoidDir * p.MaxForce * 5.0f);
+                    }
+                }
             }
         }
         
